@@ -35,7 +35,6 @@ library(RCurl)
 options(scipen=999) #remove sci notation
 meanFunc <- function(x,i){mean(x[i], na.rm=TRUE)}
 
-
 ##Load data from GITHUB
  data.url <- "https://raw.githubusercontent.com/wanderswest/ESM-FIA/master/Null2015.csv"
     ESM.data <- getURL(data.url)                
