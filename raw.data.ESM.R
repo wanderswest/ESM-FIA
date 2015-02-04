@@ -592,8 +592,13 @@ print("done TEMP")
 
 
 RM5merged<-merge(RM5, S4swPRECtemp, all.x=TRUE, by=c("PLT_CN", "INVYR", "REMPER"))
-RM5merged<-subset(RM5merged, PREVSTOCKING5mid>0 & DIAbeginmean>0)
-write.csv(RM5merged, file = "/Volumes/m-z/tda210/USFS/RM5mergedfullcut1991.11.17.2014.csv")
+RM5merged<-subset(RM5mergedfullcut1991.11.17.2014, PREVSTOCKING5mid>0 & DIAbeginmean>0  &  PLT_CN!= 134680578010854, select=-c(VolCNG, VolCNGmean, VolCNGmin, VolCNGmax, VolCNGmid, VolCNGgrow, VolCNGdie, RADendmean, RADbeginmean, DIAgrow10mean, DIAgrow15mean, mortDIAmax, cutDIAmax, TPAsum10, TPAsum510, PREVTPAsum510, ELEV, ECOSUBCD, SLOPE, PHYSCLCD, BALIVE, CARBON_DOWN_DEAD, deadcarbon5TREE, deadcarbon5CUTTREE, UndisturbedNOVEG, minor.disturb, major.disturb, major.prev.disturb, minor.prev.disturb, DEADsum, UndisturbedNOVEGnoPREVnoUN, UndisturbedNOVEGnoPREV, PREV_cutting, animalC, insectC, fireC, weatherC, diseaseC, unknowndamageC, vegetationC, iLAT.x, iLON.x, LATLON.x, LATLON.y, soilw, soilwZ, droughtYRLL2, pluvialYRLL2, droughtYRLL, pluvialYRLL, Year.x, LLn, SWintercept, SWslope, SWn,  SWse, SW.F.stat, SW.r.squared, SW.p.value, SWdrought, SWpluvial, LATLON, Prec, Zprec, PREC1, PREC1grow, Year.y, iLAT.y, iLON.y, PREC5sum, PREC5growsum, PRECintercept, PRECslope, PRECn, PRECse, PREC.F.stat, PREC.r.squared, PREC.p.value, PRECdrought, PRECpluvial, pluvial.trend, drought.trend, SW.pluvial, No.trend, No.extreme, Stable.climate))  ## exclude: plots with 0 initial trees, 1 unlikely outlyier, and variables not-needed for ESM analyses#
+
+
+
+#write.csv(RM5merged, file = "/Volumes/m-z/tda210/USFS/RM5mergedfullcut1991.11.17.2014.csv")
+write.csv(RM5merged, file = "/Volumes/m-z/tda210/USFS/Null2015.csv")
+
 print("Done and Done")
 
 

@@ -46,7 +46,7 @@ RM5mergedfullcut1991.11.17.2014  <- as.data.table(ESM.data)
 #RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Volumes/m-z/tda210/USFS/Null2015.csv", header = TRUE, sep = ",", quote="\"", dec="."))
 
 RM5mergedfullcut1991.11.17.2014 <-  subset(RM5mergedfullcut1991.11.17.2014, STDORGCD==0 ) # remove planted forests
-S4swPREC <-  subset(RM5mergedfullcut1991.11.17.2014, STDORGCD==0 & cut==0 &  PLT_CN!= 134680578010854) #
+S4swPREC <-  subset(RM5mergedfullcut1991.11.17.2014, STDORGCD==0 & cut==0 ) #exclude planted and harvested forests
 F2 <- subset(S4swPREC)
 
 
@@ -1787,7 +1787,7 @@ F2$allmort<-(F2$insect+F2$fire+F2$weather+F2$disease+F2$animal+F2$unknowndamage+
 Feqmerge<-F2
 
 #Comparison model
-F2<-subset(F2, select=c(PLT_CN, PREV_STOCKINGmid, PREV_DIAmean, PREV_Csum, DIAmean, Csum, STOCKINGmid,  REMPER, DIAchg, Cchg, STOCKchg, TEMP5growchg, PREC5growchg, SWdrought5chg, SWpluvial5chg, cutting, STDORGCD, cut, cutDIAmean, TPAsum, NOdisturb, alldisturb, allmort)) #, PREV_SPCDdiversity, SPCDdiversity, PREV_CARBON_DOWN_DEAD, CARBON_DOWN_DEAD, PREV_SPGRPCD, SPGRPCD))# 
+F2<-subset(F2, select=c(PLT_CN, PREV_STOCKINGmid, PREV_DIAmean, PREV_Csum, DIAmean, Csum, STOCKINGmid,  REMPER, DIAchg, Cchg, STOCKchg, TEMP5growchg, PREC5growchg, SWdrought5chg, SWpluvial5chg, cutting, STDORGCD, cut, cutDIAmean, TPAsum, NOdisturb, alldisturb, allmort)) #, PREV_SPCDdiversity, SPCDdiversity, PREV_SPGRPCD, SPGRPCD))# 
 c2<-40 # max diameter bin to collapse outliers
 #previous whole dataset with change
 #F2$PREV_DIAmean[F2$PREV_DIAmean>40]<-40
@@ -2094,7 +2094,7 @@ F2$allmort<-(F2$insect+F2$fire+F2$weather+F2$disease+F2$animal+F2$unknowndamage+
 Feqmerge<-F2
  
 #Comparison model
-F2<-subset(F2, select=c(PLT_CN, PREV_STOCKINGmid, PREV_DIAmean, PREV_Csum, DIAmean, Csum, STOCKINGmid,  REMPER, DIAchg, Cchg, STOCKchg, TEMP5growchg, PREC5growchg, SWdrought5chg, SWpluvial5chg, cutting, STDORGCD, cut, cutDIAmean, TPAsum, NOdisturb, alldisturb, allmort)) #, PREV_SPCDdiversity, SPCDdiversity, PREV_CARBON_DOWN_DEAD, CARBON_DOWN_DEAD, PREV_SPGRPCD, SPGRPCD))# 
+F2<-subset(F2, select=c(PLT_CN, PREV_STOCKINGmid, PREV_DIAmean, PREV_Csum, DIAmean, Csum, STOCKINGmid,  REMPER, DIAchg, Cchg, STOCKchg, TEMP5growchg, PREC5growchg, SWdrought5chg, SWpluvial5chg, cutting, STDORGCD, cut, cutDIAmean, TPAsum, NOdisturb, alldisturb, allmort)) #, PREV_SPCDdiversity, SPCDdiversity, PREV_SPGRPCD, SPGRPCD))# 
 c2<-40 # max diameter bin to collapse outliers
 #previous whole dataset with change
 
@@ -2276,6 +2276,7 @@ setnames(Feq3,c("ySD", "cond"))
 meanFunc2<-function(x,i){(mean(x$variCOND[i], na.rm=TRUE)/mean((x$variNULL[i]), na.rm=TRUE))} 
 meanFunc3<-function(x,i){(mean(x$deadcarbon5sumTREE[i], na.rm=TRUE)/mean((x$mortality2[i]), na.rm=TRUE))} 
  
+
 
 F2<-subset(RM5mergedfullcut1991.11.17.2014, PREVcarbon1sum>0 & PREVSTOCKING5mid>=60 ) 
 #Convert variables to standard names and metric units
