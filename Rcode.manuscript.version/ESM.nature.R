@@ -31,18 +31,18 @@ library(quantreg)
 library(fields)
 library(grDevices)
 library(RCurl)
-
 options(scipen=999) #remove sci notation
 meanFunc <- function(x,i){mean(x[i], na.rm=TRUE)}
 
+
 ##Load data from GITHUB
- data.url <- "https://raw.githubusercontent.com/wanderswest/ESM-FIA/master/Null2015.csv"
+ data.url <- "https://raw.githubusercontent.com/wanderswest/ESM-FIA/master/STEMs.data.csv"
     ESM.data <- getURL(data.url)                
     ESM.data <- read.csv(textConnection(ESM.data), header = TRUE, sep = ",", quote="\"", dec=".")
 RM5mergedfullcut1991.11.17.2014  <- as.data.table(ESM.data)
 
 #or load filtered data from local drive
-#RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Volumes/m-z/tda210/USFS/Null2015.csv", header = TRUE, sep = ",", quote="\"", dec="."))
+#RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Users/travis/GitHub/ESM-FIA/ESM.data.csv", header = TRUE, sep = ",", quote="\"", dec="."))
 
 RM5mergedfullcut1991.11.17.2014 <-  subset(RM5mergedfullcut1991.11.17.2014, STDORGCD==0 ) # remove planted forests
 S4swPREC <-  subset(RM5mergedfullcut1991.11.17.2014, STDORGCD==0 & cut==0 ) #exclude planted and harvested forests
@@ -222,18 +222,9 @@ text(x1, y1[9]+10,"Under", cex=cex1, pos=2) #initial plot stocking and mean chan
 F2l <- subset(F2, PREVSTOCKING5mid>60  ) #
 fit4<-rq(log10(TPAsum) ~ log10(DIAmean), tau=0.90, data=F2l)
 lml<-summary(fit4)
+x<-seq(0,50, 0.5)
 y=((x^ lml$coefficients[2])* 10^lml$coefficients[1]) # #325000  #Best fit for early succession without saplings
 lines((y)~(x), col="#00000090", lty="dotted", lwd=6.5) # "#00000090"
-
-#Current average:	
-cond <- "1"
-x <- mean(F2$DIAmean, na.rm=T)
-y <- mean(F2$TPAsum, na.rm=T)
-xer <- std.error(F2$DIAmean, na.rm=T)*1.96
-yer <- std.error(F2$TPAsum, na.rm=T)*1.96
-points(x,y, pch=23, col="#00000000", bg="grey35", cex=0.95)
-#segments(x-xer,y, x+xer, y, col="#00000080", lwd=2)
-#segments(x,y-yer, x, y+yer, col="#00000080", lwd=2)
 
 #Future average:	 BASED ON results from future equilibrium model below
 cond <- "3"
@@ -496,19 +487,6 @@ y=(lml$coefficients[2]*x+lml$coefficients[1])  #Best fit
 lines((y)~(x), col="#00000090", lty="dotted", lwd=5) # "#00000085"
 
 
-
-	
-#Current average:	
-cond <- "1"
-x <- mean(F2$DIAmean, na.rm=T)
-y <- mean(F2$TPAsum, na.rm=T)
-xer <- std.error(F2$DIAmean, na.rm=T)*1.96
-yer <- std.error(F2$TPAsum, na.rm=T)*1.96
-points(x,y, pch=23, col="#00000000", bg="grey35", cex=0.95)
-#text(x-0.35,y-8, cond, pos=4, col="#00000095", cex=0.9)
-#segments(x-xer,y, x+xer, y, col="#00000080", lwd=2)
-#segments(x,y-yer, x, y+yer, col="#00000080", lwd=2)
-
 #Future average: BASED ON results from future equilibrium model below
 cond <- "3"	
 x <- 34.27
@@ -641,275 +619,10 @@ box()
 
 
 
-#########################################################################################################
-###################### FIGURE 2 - SLOPES !!!#############################################################
-####
-#
-
-#Eq. S2 for bootstrap error analysis
-meanFunc4 <- function(x,i){(mean(x$TPAchg[i], na.rm=TRUE)/mean((x$DIAchg[i]), na.rm=TRUE))} 
-
-#palette(adjustcolor((rev(rich.colors(400))), transform=diag(c(0.85,0.95,0.75,1)))) # alpha.f=0.15 #60
-palette(colorRampPalette(c("darkolivegreen3", "darkolivegreen1", "orange", "salmon"))( 14 )) ## (n)
-
-#main dataset excluding logged and planted forests
-F2 <- subset(S4swPREC) 
-#log scale
-#Convert variables to standard names and metric units
-F2$DIAmean <- log10(F2$DIAendmean* 2.54)				#mean tree diameter by plot at resurvey (cm)
-F2$PREV_DIAmean <- log10(F2$DIAbeginmean *2.54)		#mean tree diameter by plot at initial survey (cm)
-F2$TPAsum <- log10(F2$endsumTPA /0.404686)			#number of trees per hectare by plot at resurvey
-F2$PREV_TPAsum <- log10(F2$startsumTPA /0.404686)		#number of trees per hectare by plot at initial survey (cm)
-F2$PREV_STOCKINGmid <- F2$PREVSTOCKING5mid			#calculated relative stocking by plot at initial survey
-F2$TPAsum[F2$TPAsum==-Inf] <- 0 #35 plots that end with 0 trees replace -infinity with 0 for calcs.  
- #calculate change in Stem density and mean tree diameter for each plot
-F2$TPAchg <- F2$TPAsum-F2$PREV_TPAsum
-F2$DIAchg <- F2$DIAmean-F2$PREV_DIAmean
-
-F2$allmortalitynoAD <- (F2$unknowndamage+F2$vegetation) 
-F2$allmortality <- (F2$insect+F2$fire+F2$weather+F2$disease+F2$animal+F2$unknowndamage+F2$vegetation)
-F2$disturb <- (F2$insect+F2$fire+F2$weather+F2$disease+F2$animal)
-
-
-print(c(((sum(F2$allmortality>0)-sum(F2$allmortalitynoAD>0))/sum(F2$allmortality>0))*100, "percent of forest with mortality and disturbance agents"))
-print(c((sum(F2$disturb>0)/sum(F2$PLT_CN>0))*100, "percent of forest with disturbance agents"))
-print(c((sum(F2$PREV_STOCKINGmid>115 & F2$disturb==0)/sum(F2$PLT_CN>0))*100, "percent of undisturbed forest with relative density >115%"))
-
-#set up new plot
-#dev.new(width=5, height=5.5)
-dev.new(width=4.5, height=4.5)
-bootstrap.iterations<-100 #smaller is faster
-
-plot(1,1, type="n", xlim=c(50,121), ylim=c(-1.85, 0.93),xlab=NA, ylab=NA, axes=FALSE) #-2.2 #108
-axis(side=1, tck=-0.01, labels=NA, lwd=0.75)
-axis(side=2, tck=-0.01, labels=NA, lwd=0.75, at=c( -1.5, -0.75,  0,  0.75)) #at=c(-1.75, -1.5, -1.25, -1.0, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1.0))
-axis(side=1, lwd=0, line= -0.7)
-axis(side=2, lwd=0, line= -0.7, at=c( -1.5, -0.75,  0,  0.75), labels=c( -1.5, -0.75,  0,  0.75 ))
-mtext(side=1, "Forest relative density", line=1.2)
-mtext(side=2, expression(italic(b)~(forest~thinning~scaling~exponent)) , line=1.2)
-#box()
-lines(c(40,130),c(-1.5, -1.5), lty=4)
-lines(c(0,80),c(0, 0), lty=1, lwd=0.5)
-#lines(c(40,130),c(-2, -2), lty=2)
-lines(c(0,130),c(-0.75, -0.75), lty="dotted")
-
-#plot legend 
-#text(y=-1.95, x=62,"Metabolic scaling", pos=1, cex=0.9)
-text(y=-1.45, x=65,"-3/2 self-thinning rule", pos=1,  cex=0.9)
-#legend("topright", pch = c(21, 23, NA, 24, NA),  col = c("grey50", "#b3de69", NA, "black"), pt.bg=c("white", "#b3de6950", NA, 2.8), legend = c("All forests", "All Undisturbed", "5-year change", "ESM quantile regr.", "  Disturbance (%)"), bty="o", bg="white", box.col="white",  cex=0.9,  y.intersp=c(0.9, 0.9, 0.9, 0.9, 0.95), pt.lwd=c(NA, NA, NA, 0.5, NA))
-#legend("topright", pch = c(21, 23, NA, 24, NA),  col = c("black","black", NA, "black", NA), pt.bg=c("white","white", NA, "salmon", NA), legend = c("All forests", "All Undisturbed", "5-year change", "ESM 99.9% quantile", "Disturbance (%)"), bty="o", bg="white", box.col="white",  cex=0.9, y.intersp=c(0.5, 0.5, 0.5, 0.5, 0.6))
-
-error<-0
-
-
-for(t in 1:3) #1: plot error windows, 2: plot mean b points/lines, 3: plot 5-year change vectors
-{
-for(d in 2:2)
-{
-	
-if(d==1) #undisturbed
-{ #unknowndamage<=al & vegetation<=9  DSTRBCD1==0 &
-	F2b <- subset(F2,  disease==0 & animal==0 & insect==0 & weather==0 & fire==0) # & SISP>=300) unknowndamage<=un & vegetation<=vg
-	col5 <- "#b3de69"
-	col4 <- "#00000005" #"#ABFF0020"
-	col6 <- "yellowgreen"
-	bg2= "darkolivegreen3" #"#b3de6950"
-	lw2 <- 1.5
-	pch2=23
-	err <- 1 #error on
-	line <- 0 #line on
-	arrows <- 1 #arrows off
-}
-if(d==2) #all forests
-{
-	F2b <- subset(F2)
-	col5 <- "grey55"
-	col4 <- "#00000005"
-	pch2=21
-	bg2="grey80"
-	col6="grey60"
-	lw2<-2.5
-	err <- 1 #error off
-	line <- 0 #line on
-	arrows <- 1 #arrows off
-}
-if(d==3) #all mortality
-{  #<- subset(F2, allmortality>0 &  animal<8 & disease<8 & weather<8 & insect<8 & fire<8)
-	F2b <-subset(F2,  DSTRBCD1==0  ) # subset(F2, allmortality>0 &  weather==0 ) 
-	#F2b2 <- subset(F2, allmortality>0 & disease==0 & animal==0) 
-	#F2b3 <- subset(F2, allmortality>0 & SWdrought5>quantile(F2$SWdrought5, 0.5, na.rm=T)) 
-	col6 <- "#B8860B30" #"#DEB88740"
-	col4 <- "#B8860B30"
-	col5 <- "#B8860B98" #
-	lw2 <- 0.85
-	pch2=22
-	err <- 1 #error off
-	line <- 0 #line on
-	arrows <- 1 #arrows off
-	bg2="#DAA52060"
-}	
-
-
-if(t==1){t2=88} #86 #76
-if(t==2 & d==1){t2=88}
-if(t==2 & d>1){t2=87}
-if(t==3){t2=85}
-
-#relative density range integration interval
-stocks <- c(seq(31,130,2)) 
-it <- 4 #should be even
-it2 <- it/2 
-it3 <- it2-1 
-
-for(i in 1:t2)
-{
-#select forests within stocking interval
-F2n <- subset(F2b, PREV_STOCKINGmid>=stocks[i] & PREV_STOCKINGmid<stocks[i+it])
-slope <- mean(F2n$TPAchg, na.rm=TRUE)/(mean(F2n$DIAchg, na.rm=TRUE))
-#plot(density(F2n$DIAchg, na.rm=T)) #, xlim=c(-10, 10))
-
-if(i==1)
-{
-slope2 <- 0
-error2 <- 0
-}
-	
-if(t==1 & err==1 & sum(F2n$PLT_CN>0)>3)  #min sample size=3
-{  
-RatioBoot2 <- boot(F2n, meanFunc4, R= bootstrap.iterations)	#1000				
-error <- round(sqrt(var(RatioBoot2$t, na.rm=T)), 2)*1.96
-polygon(c(stocks[i+it3], stocks[i+it2], stocks[i+ it2],stocks[i+ it3]), c(slope2-error2, slope-error,slope+error, slope2+error2), col= col4, border=NA)
-lines(c(stocks[i+ it3], stocks[i+ it2]), c(slope2+error2, slope+error), col= col6, lwd=0.3)
-lines(c(stocks[i+ it3], stocks[i+ it2]), c(slope2-error2, slope-error), col= col6, lwd=0.3)
-}
-
-if(t==1 & line==1)
-{	
-	lines(c(stocks[i+ it3], stocks[i+ it2]),c(slope2,slope), col=col5, lwd=lw2)
-	#print(c(stocks[i+ it2], slope))
-    #points(stocks[i+ it2],slope, col=col5, pch=18, cex=0.5)
-
-}
-
-if(t==2 & line==0)
-{
-	#palette(adjustcolor(rev((topo.colors(13))), transform=diag(c(0.85,0.95,0.75,1)))) # alpha.f=0.15 #60
-#palette(colorRampPalette(c("#b3de69", "darkolivegreen1", "orange", "salmon"))( 14 )) ## (n)
-#palette(colorRampPalette(c("#b3de69", "darkolivegreen1", "peru", "salmon", "salmon2", "salmon3"))( 10 )) ## (n)
-
-	
-	if(d==2){bg2<-((sum(F2n$disturb)/sum(F2n$startsumTPA/6.012))*400)-1.5}
-	#F2n$b2<-(F2n$TPAchg)/(F2n$DIAchg)
-	#F2nC<-subset(F2n,  b2<=slope) #Cchg<= median(F2n$Cchg, na.rm=T))
-	#Cchg <- (mean(((F2nC$carbon1sum-F2nC$PREVcarbon1sum)/F2nC$REMPER), na.rm=T))/150 #
-	#points(stocks[i+ it2],slope, col="black", pch=pch2, cex=0.95, bg=Cchg+21, lwd=0.25)
-	#points(stocks[i+ it2],slope, col=col5, pch=pch2, cex=1, bg=colD)
-	points(stocks[i+ it2],slope, col=col5, pch=pch2, cex=1, bg=bg2, lwd=0.3)
-	n <- sum(F2n$PLT_CN>0)
-	#dstrb<-	(sum(F2n$disturb)/sum(F2n$startsumTPA/6.012))*100
-	chg <- (mean(F2n$STOCKING5mid-F2n$PREV_STOCKINGmid, na.rm=T)) #
-	print(c(stocks[i+ it2], slope, n, chg ))
-}
-
-if(t==3 & arrows==1)
-{
-
-chg <- (mean(F2n$STOCKING5mid-F2n$PREV_STOCKINGmid, na.rm=T)) #
-chg <- ifelse(chg > -0.15 & chg < 0.01, 0, chg) #beautification
-slope1a <- ((stocks[i+ it2]^(-1.427))*878.5)-2.5
-slope2b <- (((stocks[i+ it2]-chg)^(-1.427))*878.5)-2.5
-slope3c <- slope1a-slope2b
-arrows(stocks[i+ it2]-chg, slope-slope3c, stocks[i+it2], slope, col="white", length=0.06, angle=25,lwd=0.75)
-#arrows(stocks[i+ it2]-chg, slope-slope3c, stocks[i+it2], slope, col="white", length=0.06, angle=25,lwd=0.75)
-#arrows(stocks[i+ it2]-chg, slope-slope3c, stocks[i+it2], slope, col="grey20", length=0.06, angle=25,lwd=0.5)
-arrows(stocks[i+ it2]-chg, slope-slope3c, stocks[i+it2], slope, col="grey20", length=0.06, angle=25,lwd=0.5)
-}
-
-slope2 <- slope
-error2 <- error
-}#i
-}#d
-}#t
-
-distESM<-((sum(F2$disturb)/sum(F2$startsumTPA/6.012))*400)-1.5
-
-#weather = lightning, wind, snow/ice, flooding, may include drought (NRS)
-
-
-#########add overall model thinning rates - STEM DENSITY QUANTILES
-F2 <- subset(S4swPREC, select=c(DIAendmean, DIAbeginmean, endsumTPA, startsumTPA, PREVSTOCKING5mid, STOCKING5mid)) #remove early successsional forests
-#Convert variables to standard names and metric units
-F3 <- F2
-F2$DIAmean <-(F2$DIAendmean* 2.54)				#mean tree diameter by plot at resurvey (cm)
-F2$TPAsum <-(F2$endsumTPA /0.404686)
-F3$DIAmean <-(F3$DIAbeginmean *2.54)		#mean tree diameter by plot at initial survey (cm)
-F3$TPAsum <-(F3$startsumTPA /0.404686)		#number of trees per hectare by plot at initial survey (cm)
-F2$STOCKINGmid <- F2$STOCKING5mid			#calculated relative stocking by plot at initial survey
-F3$STOCKINGmid <- F3$PREVSTOCKING5mid			#calculated relative stocking by plot at initial survey
-F4 <- rbind(F2, F3)
-#F4$DIAmean[is.na(F4$DIAmean)==T] <- 0
-
-xL1<-0
-slope1<-0
-errory1<-0
-
-qt3 <- c(seq(0.399,0.799,0.1), seq(0.899,0.999,0.01))   #0.999
-qt1=16
-#quantile regression based
-
-for(q in 16:qt1)
-{
-fit4<-rq(log10(TPAsum)~log10(DIAmean), tau= qt3[q], data=F4)
-lml<-summary(fit4)
-#y=((x^ lml$coefficients[2])* 10^lml$coefficients[1]) # #325000  #Best fit for early succession without saplings
-#lines((y)~(x), col="#00000090", lty="dotted", lwd=6.5) # "#00000090"
-
-slope <- lml$coefficients[2]  #Best fit slope
-errory <- lml$coefficients[4]*1.96
-xL <- quantile(F4$STOCKINGmid, qt3[q])
-print(xL)
-lines(c(xL, xL), c(slope+errory, slope-errory), col= "grey25", lwd=0.5)
-#points(xL, slope, col="black", pch=5, cex=1.5, lwd=1)
-#points(xL, slope, col="salmon", pch=24, cex=1.2, bg="salmon", lwd=1)
-points(xL, slope, col="grey25", pch=24, cex=1.2, bg= distESM, lwd=1)
-
-
-#points(xL, slope, col="white", pch=24, cex=5, bg="white", lwd=1)
-
-#lines(c(xL1, xL), c(slope1, slope), col= "salmon", lwd=0.5)
-
-#xL1<-xL
-#slope1<-slope
-#errory1<-errory
-}
-
-
-
-legend("topright", pch = c(21, 23, NA, 24, NA),  col = c("grey50", "grey50", NA, "black", NA), pt.bg=c("white", "white", NA, "white", NA), legend = c("All forests", "All undisturbed", "5-year change", "ESM quantile regr.", "  Disturbance (%)"), bty="n", bg=NULL, box.col="white",  cex=0.9,  y.intersp=c(0.9, 0.9, 0.9, 0.9, 0.95), pt.lwd=c(0.85, 0.85, NA, 0.5, NA)) 
-arrows(88.4, 0.48, 91.3, 0.48, col="grey35", length=0.055, angle=25,lwd=1)
-
-#palette(adjustcolor((rev(rich.colors(400))), transform=diag(c(0.85,0.95,0.75,1)))) # alpha.f=0.15 #60
-#palette(adjustcolor(colorRampPalette(c("darkolivegreen3", "darkolivegreen1", "orange", "salmon"))( 14 ),transform=diag(c(1,1,1,1)))) ## (n)
-y<- cbind( 0:14)#
-colorbar.plot( 106.9, -0.12, y, strip.width=0.05, strip.length=0.425, col= c("grey"))
-colorbar.plot( 106, -0.12, y, strip.width=0.045, strip.length=0.45, col= c(0:14))
-text( 106, -0.125, labels=c("  0    1    2    3    4"), cex=0.85, col="grey30")
-
-
-
-#box()
-####################### FIGURE 2 - END  #################################################################
-####
-#
-
-
-
-
-
 
 
 #################################################################################################################
-################ FIGURE 3 - Climate Condition DIVERGENCE ########################################################
+################ FIGURE 2 - Climate Condition DIVERGENCE ########################################################
 ####
 ##
 
@@ -1122,7 +835,6 @@ f22$sapRECRchg <- (f22$sapRecruitsum/f22$sapavgRECR)*100 #sapling recruitment pe
 ##SISP ratio
 sp22 <- mean(f22$SISPchg-f22$sapavgTPAchg, na.rm=T)
 
-
 #calculate mean condition for x-axis based on v loop
 if(length(f22$xcarbon)>= 10)
 {
@@ -1158,7 +870,7 @@ sapMORT <- mean(f22$sapMORTchg, na.rm=T)
 sapRECR <- mean(f22$sapRECRchg, na.rm=T)
 
 #calc y-axis error
-R2 <- 1000 #repetitions set to 10 for faster looping
+R2 <- 100 #repetitions set to 10 for faster looping
 enderror <- boot(f22$xcarbon, meanFunc, R=R2)
 enderrory3 <- sqrt(var(enderror$t))*1.96
 enderror5 <- boot(f22$xcarbon5, meanFunc, R= R2)
@@ -1431,7 +1143,7 @@ print(c( "quantile", qt2[22])) #0.5 degree warming
 
 
 ####################################################################################################################
-############## TABLE S2 - CLimate stats ############################################################################
+############## Extended data TABLE 3 - CLimate stats ############################################################################
 #########
 ###
 
@@ -1598,7 +1310,7 @@ F2$PREV_STOCKINGmid<-F2$PREVSTOCKING5mid	#calculated relative stocking by plot a
 #calculate change in Stem density and mean tree diameter for each plot
 F2$TPAchg<-F2$TPAsum-F2$PREV_TPAsum
 F2$DIAchg<-F2$DIAmean-F2$PREV_DIAmean
-#######################   FIGURE 1b - EMPIRICAL FOREST CARBON MODEL  #######################################################
+#######################   Extended data FIGURE 4 - EMPIRICAL FOREST CARBON MODEL  #######################################################
 
 
 #set up plot
@@ -1728,13 +1440,10 @@ print(length(S11q$PREV_DIAmean))
 	}
 
 ############  END CARBON PLOT SET UP
-###########	
 #	
 #	
-#
 #
 ############### Carbon Empirical GROWTH Model - Climate condtions and disturbance PROJECTIONS!! ########################################
-######
 
 meanFunc<-function(x,i){mean(x[i], na.rm=TRUE)}
 

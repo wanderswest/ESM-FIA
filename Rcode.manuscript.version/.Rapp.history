@@ -1,0 +1,1788 @@
+RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Users/travis/Github/ESM-FIA/STEMSs.data.csv", header = TRUE, sep = ",", quote="\"", dec="."))
+####CAUTION for() LOOPS AHEAD#####
+#
+#Load library, set options, simple fuctions#
+library(RColorBrewer)#
+library(sp)#
+library(data.table)#
+library(spam)#
+library(nlme)#
+library(maps)#
+library(ggplot2)#
+library(modeest)#
+library(effects)#
+library(plyr)#
+library(reshape2)#
+library(ggmap)#
+library(boot)#
+library(gplots)#
+library(shape)#
+library(SDMTools)#
+library(grid)#
+library(gridExtra)#
+library(plotrix)#
+library(foreach)#
+library(doParallel)#
+library(doMC)#
+registerDoMC(cores=2)#
+library(quantreg)#
+library(fields)#
+library(grDevices)#
+library(RCurl)
+RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Users/travis/Github/ESM-FIA/STEMSs.data.csv", header = TRUE, sep = ",", quote="\"", dec="."))#
+#
+RM5mergedfullcut1991.11.17.2014 <-  subset(RM5mergedfullcut1991.11.17.2014, STDORGCD==0 ) # remove planted forests#
+S4swPREC <-  subset(RM5mergedfullcut1991.11.17.2014, STDORGCD==0 & cut==0 ) #exclude planted and harvested forests#
+F2 <- subset(S4swPREC)
+RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Users/travis/Github/ESM-FIA/STEMSs.data.csv", header = TRUE, sep = ",", quote="\"", dec="."))
+RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Users/travis/Github/ESM-FIA/STEMSs.data.csv", header = TRUE, sep = ",", quote="\"", dec="."))
+RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Users/travis/GitHub/ESM-FIA/STEMSs.data.csv", header = TRUE, sep = ",", quote="\"", dec="."))
+RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Users/travis/GitHub/ESM-FIA/ESM.data.csv", header = TRUE, sep = ",", quote="\"", dec="."))
+RM5mergedfullcut1991.11.17.2014 <-  subset(RM5mergedfullcut1991.11.17.2014, STDORGCD==0 ) # remove planted forests#
+S4swPREC <-  subset(RM5mergedfullcut1991.11.17.2014, STDORGCD==0 & cut==0 ) #exclude planted and harvested forests#
+F2 <- subset(S4swPREC)
+#palette(adjustcolor(((rich.colors(60))), transform=diag(c(0.85,0.95,0.75,1)))) # alpha.f=0.15 #60#
+#
+#Climate Colors:#
+pt <- "steelblue1" #pluvial trend#
+pe <- "royalblue"	#pluvial event#
+dt <- "goldenrod1" #drought trend#
+de <- "orange2"  	#drought event#
+nt <- "grey55"#
+ne <- "grey35"#
+wt <- "peachpuff"#
+ct <- "slategray1"#
+errorcol <- "grey75"#
+errorlwd <- 0.53#
+ag1 <- 25#
+#
+#S4swPREC <- as.data.table(read.csv("/Volumes/m-z/tda210/USFS/RM5mergedfullcut1991.11.17.2014.csv", header = TRUE, sep = ",", quote="\"", dec="."))#
+F2 <- subset(S4swPREC, temp5grow>0 ) #& SISP<300) #remove any NA's from temperature data#
+#
+#dataset for undisturbed analysis Fig S2#
+if(1==2)#
+{#
+F2$vegetation[F2$vegetation!=0]<-F2$vegetation[F2$vegetation>0]+rnorm(sum(F2$vegetation>0),0, 0.1)#
+vg<-quantile(F2$vegetation[F2$vegetation!=0], 0.99, na.rm=T)#
+F2$unknowndamage[F2$unknowndamage!=0]<-F2$unknowndamage[F2$unknowndamage>0]+rnorm(sum(F2$unknowndamage>0),0, 0.1)#
+un<-quantile(F2$unknowndamage[F2$unknowndamage!=0], 0.98, na.rm=T)#
+F2 <- subset(F2,  unknowndamage<=un & vegetation<=vg & disease==0 & animal==0 & insect==0 & weather==0 & fire==0) #
+}#
+#
+#Convert variables to standard names and metric units#
+F2$DIAmean <- (F2$DIAendmean* 2.54)			#mean tree diameter by plot at resurvey (cm)#
+F2$PREV_DIAmean <- (F2$DIAbeginmean *2.54)	#mean tree diameter by plot at initial survey (cm)#
+F2$TPAsum <- (F2$endsumTPA /0.404686)			#number of trees per hectare by plot at resurvey#
+F2$PREV_TPAsum <- (F2$startsumTPA /0.404686)	#number of trees per hectare by plot at initial survey (cm)#
+F2$PREV_STOCKINGmid <- F2$PREVSTOCKING5mid	#calculated relative stocking by plot at initial survey#
+F2$TPAchg <- (F2$TPAsum-F2$PREV_TPAsum)/F2$REMPER#
+F2$SISPchg<-ifelse(F2$SISP>=300, 1, ifelse(F2$SISP<300, -1, NA) )#
+F2$PREVcarbon1sum<-F2$PREVNPP#
+F2$carbon1sum<-F2$NPP#
+#set grid cell size#
+a <- b <- 2  #2=0.5degrees, 0.5=2degrees#
+	F2$iLAT <- ((ceiling(F2$LAT*a))/a)-0.5 #+0.25  #round down to integer then add .25 ; switched /* removed ).25 addition#
+	F2$iLON <- ((floor(F2$LON*b))/b)+0.5 #-0.25  #round down to integer then subtract .25; switched /*  ).25 addition#
+	F2$LATLONYR <- (F2$iLAT*10000000000000) +(F2$iLON*(-100000000)) +F2$INVYR#
+	F2$LATLON <- as.factor(F2$iLAT*100000000+ F2$iLON*-1000) #LATLON identifyier#
+#
+#Find climate variable mean and range for each grid cell#
+F2$TEMPminLL <- ave(F2$temp5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$TEMPgrowminLL <- ave(F2$temp5grow, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$TEMP5chg <- F2$temp5-F2$TEMPminLL#
+F2$TEMP5growchg <- F2$temp5grow-F2$TEMPgrowminLL#
+F2$TEMP5growchg[is.na(F2$TEMP5growchg)==T] <- 0#
+F2$TEMP5growchg[F2$TEMP5growchg==0] <- rnorm(sum(F2$TEMP5growchg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+#F2$PREC5grow <- F2$PREC5grow*92/3/10 #convert mm/day to cm per month#
+F2$PRECminLL <- ave(F2$PREC5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$PRECgrowminLL <- ave(F2$PREC5grow, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$PREC5chg <- F2$PREC5-F2$PRECminLL#
+F2$PREC5growchg <- F2$PREC5grow-F2$PRECgrowminLL#
+F2$PREC5growchg[F2$PREC5growchg==0] <- rnorm(sum(F2$PREC5growchg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+#
+F2$SWdroughtLL <- ave(F2$SWdrought5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$SWpluvialLL <- ave(F2$SWpluvial5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$SWdrought5chg <- F2$SWdrought5-F2$SWdroughtLL#
+F2$SWpluvial5chg <- F2$SWpluvial5-F2$SWpluvialLL#
+F2$SWpluvial5chg[F2$SWpluvial5chg==0] <- rnorm(sum(F2$SWpluvial5chg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+F2$SWdrought5chg[F2$SWdrought5chg==0] <- rnorm(sum(F2$SWdrought5chg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+F2$nsampTOT <- ave(F2$DIAmean>0,F2$LATLON, FUN=function(x) sum(x, na.rm=TRUE))#
+#
+vari <- c("PREC5growchg", "TEMP5growchg", "SWpluvial5chg", "SWdrought5chg") #"PREC5growchg", "TEMP5growchg"#
+vari1 <- subset(F2, select=c(PREC5growchg, TEMP5growchg, SWpluvial5chg, SWdrought5chg))#
+vari2 <- c("5-yr JJA precip. anomaly (mm/day)", "5-yr JJA temp. anomaly (C)", "1-yr JJA soil moist. anomaly (z-score)", "1-yr JJA soil moist. anomaly (z-score)")
+qt1 <- c(seq(0,1,1/9)/100,seq(1,59,2)/100)#
+qt2 <- c(seq(41,99, 2)/100, seq(99,100,1/9)/100) #0.98, 0.99 added to ease moving average transistion to 1 at end#
+int <- 4#
+F5 <- NULL#
+for(v in 1:3)#
+{v=v#
+F4<-foreach(c = 1:60, .combine=rbind) %dopar%#
+{#
+	if(c<=30 & v<3)#
+	{#
+		f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE)) 		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+		}#
+	if(c>30 & v<3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v])< quantile(vari1[[v]], qt1[d], na.rm=TRUE) & get(vari[v])> quantile(vari1[[v]], qt1[d-int], na.rm=TRUE)) #		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+	if(c<=30 & v==3)#
+	{#
+			f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE)) #exclude droughts#
+			f23 <- subset(F2, get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE) & get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Wet summer"#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+	}#
+	if(c>30 & v==3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v+1])< quantile(vari1[[v+1]], qt1[d], na.rm=TRUE) & get(vari[v+1])> quantile(vari1[[v+1]], qt1[d-int], na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE)) #exclude wet summers  #
+		f23 <- subset(F2, get(vari[v+1])<= quantile(vari1[[v+1]], 0.7, na.rm=TRUE) & get(vari[v+1])>= quantile(vari1[[v+1]], 0.3, na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Dry summer"#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+f22$nsamp <- (ave(f22$DIAmean>0,f22$LATLON, FUN=function(x) sum(x, na.rm=TRUE)))/f22$nsampTOT #sample proportion of each grid cell #
+#print(c(table(f22$nsamp<0.75), col3))#
+#
+#f22$col3 <- col3#
+PLT_CNsamp1 <- f23$PLT_CN   #
+#
+f24 <- subset(f22, !duplicated(LATLON), select=c(LATLON, nsamp))#
+#
+F33 <- subset(F2, LATLON %in% (f22$LATLON)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+F33 <- merge(F33, f24, all.x=T, by="LATLON")#
+F33 <- subset(F33, PLT_CN %in% (PLT_CNsamp1)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+#
+F33$aPREVSTOCKDIAbin <- floor(F33$PREV_STOCKINGmid/10)*10000+(floor(F33$PREV_DIAmean/2)*2)#
+F33$n1 <- 1#
+F33$aPREVSTOCKDIAbinlength <- ave(F33$n1, F33$aPREVSTOCKDIAbin, FUN=function(x) sum(x, na.rm=TRUE))#
+F33$nbin <- ave(F33$nsamp, F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))#
+#
+F33 <- subset(F33, aPREVSTOCKDIAbinlength> 25) #Null model needs at least 10 comparison plots at each diameter/stocking bin#
+#
+##Carbon Model#
+c6 <- (((F33$carbon1sum-F33$PREVcarbon1sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgCchg <- (ave(c6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##Carbon Model 5 inch and greater trees#
+c5 <- (((F33$carbon5sum-F33$PREVcarbon5sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgC5chg <- (ave(c5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##radial growth 5,10,15 inch min DIA #
+rx5 <- (F33$DIAgrowmean/F33$REMPER)/2 ## convert from diameter to radial growth#
+F33$avgx5 <- ave(rx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Mortality diameter mean#
+mortrx5 <- F33$mortDIAmean  ##
+F33$avgmortx5 <- ave(mortrx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Density Model#
+y6 <- (F33$TPAsum-F33$PREV_TPAsum)/F33$REMPER  ##
+F33$avgTPAchg <- ave(y6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##SAPLINGS Density Model#
+sap6 <- ((F33$TPAsum05/0.404686)-(F33$PREVTPAsum05/0.404686))/F33$REMPER  # convert to hectares#
+F33$sapavgTPAchg <- ave(sap6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+##SAPLINGS mortality /recruitment#
+F33$sapavgMORT <- ave(F33$sapMortsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling mortality per plot#
+F33$sapavgRECR <- ave(F33$sapRecruitsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling plot recuritment#
+#
+#SISP ratio#
+F33$sp1<- mean(F33$SISPchg, na.rm=T) #F33$nsamp#
+F33$spavgchg <- ave(F33$sp1,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)) #/F33$nbin#
+#
+#Merge null and conditional model data#
+F34 <- subset(F33, !duplicated(aPREVSTOCKDIAbin), select=c(aPREVSTOCKDIAbin, avgCchg, avgx5, avgTPAchg, sapavgTPAchg, avgC5chg, avgmortx5, sapavgMORT, sapavgRECR))#
+f22$aPREVSTOCKDIAbin <- floor(f22$PREV_STOCKINGmid/10)*10000+(floor(f22$PREV_DIAmean/2)*2)#
+f22 <- merge(f22, F34, by="aPREVSTOCKDIAbin") #, all.x=T#
+#
+#carbon 1 and 5 inch#
+c8 <- (((f22$carbon1sum-f22$PREVcarbon1sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon <- ((c8)-f22$avgCchg)#
+#
+c55 <- (((f22$carbon5sum-f22$PREVcarbon5sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon5 <- ((c55)-f22$avgC5chg)#
+#
+##radial growth  #
+x8 <- (f22$DIAgrowmean/f22$REMPER)/2  # convert from diameter to radial growth#
+f22$x5 <-  (x8-f22$avgx5)#
+#
+##mortality size#
+mortx8 <- f22$mortDIAmean ##
+f22$mortx5 <-  (mortx8-f22$avgmortx5)#
+#
+##Density Model#
+TPA <- (f22$TPAsum-f22$PREV_TPAsum)/f22$REMPER  ##
+f22$TPAchg <-  (TPA-f22$avgTPAchg)#
+#
+##SAPLING Density Model#
+sapTPA <- ((f22$TPAsum05/0.404686)-(f22$PREVTPAsum05/0.404686))/f22$REMPER  ##
+f22$sapTPAchg <-  (sapTPA-f22$sapavgTPAchg)#
+f22$sapMORTchg <- (f22$sapMortsum/f22$sapavgMORT)*100 #sapling mortaltiy percent difference from null#
+f22$sapRECRchg <- (f22$sapRecruitsum/f22$sapavgRECR)*100 #sapling recruitment percent difference from null#
+#
+##SISP ratio#
+sp22 <- mean(f22$SISPchg-f22$sapavgTPAchg, na.rm=T)#
+#calculate mean condition for x-axis based on v loop#
+if(length(f22$xcarbon)>= 10)#
+{#
+if(v==2)#
+{#
+	x3 <- mean(f22$TEMP5growchg, na.rm=TRUE)#
+}#
+if(v==1)#
+{#
+	x3 <- mean(f22$PREC5growchg, na.rm=TRUE)#
+}#
+if(v==3)#
+{#
+x3 <- ifelse(c<=30,mean(f22$SWpluvial5chg, na.rm=TRUE), mean(f22$SWdrought5chg, na.rm=TRUE))#
+}#
+#
+#calculate y-axis variables#
+y3 <- mean(f22$xcarbon, na.rm=TRUE) #
+y3pctdif<-(mean(f22$xcarbon, na.rm=TRUE)/mean(f22$avgCchg, na.rm=TRUE))*100   ##
+y3start <-  mean(c6, na.rm=T) #null model zero line for plotting#
+y5 <- mean(f22$xcarbon5, na.rm=TRUE)  ##
+y5start <- mean(c5, na.rm=T) #null model zero line for plotting#
+TPA3 <- mean(f22$TPAchg, na.rm=TRUE) ##
+sapTPA3 <- mean(f22$sapTPAchg, na.rm=TRUE) ##
+TPA3start <-  mean(y6, na.rm=T)#
+sapTPA3start <- mean(sap6, na.rm=T)#
+x5 <- mean(f22$x5, na.rm=TRUE) ##
+x5start <-  mean(rx5, na.rm=T)#
+mortx5 <- mean(f22$mortx5, na.rm=TRUE) ##
+mortx5start <-   mean(mortx8, na.rm=T)#
+#
+sapMORT <- mean(f22$sapMORTchg, na.rm=T)#
+sapRECR <- mean(f22$sapRECRchg, na.rm=T)#
+#
+#calc y-axis error#
+R2 <- 100 #repetitions set to 10 for faster looping#
+enderror <- boot(f22$xcarbon, meanFunc, R=R2)#
+enderrory3 <- sqrt(var(enderror$t))*1.96#
+enderror5 <- boot(f22$xcarbon5, meanFunc, R= R2)#
+enderrory5 <- sqrt(var(enderror5$t))*1.96#
+enderror2 <- boot(f22$TPAchg, meanFunc, R= R2)#
+enderrorTPA <- sqrt(var(enderror2$t))*1.96#
+enderrorsap <- boot(f22$sapTPAchg, meanFunc, R= R2)#
+enderrorsapTPA <- sqrt(var(enderrorsap$t))*1.96#
+enderror4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrorx5 <- sqrt(var(enderror4$t))*1.96#
+enderrormort4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrormortx5 <- sqrt(var(enderrormort4$t))*1.96#
+enderrorsapMORT <- std.error(f22$sapMORTchg, na.rm=T)#
+enderrorsapRECR <- std.error(f22$sapRECRchg, na.rm=T)#
+enderrorsp2error <- boot((f22$SISPchg-f22$sapavgTPAchg), meanFunc, R= R2)#
+enderrorsp22error <- sqrt(var(enderrorsp2error$t))*1.96#
+#
+n <- length(f22$xcarbon) #conditional model n#
+nnull <- length(F33$avgx5) #null model n#
+print(c(n, ccond, c, nnull))#
+#
+f23 <- c(x3, y3, y5, TPA3, sapTPA3, x5, mortx5, enderrory3, enderrory5, enderrorTPA, enderrorsapTPA, enderrorx5, enderrormortx5, n, v, col3, y3start, y5start, TPA3start, x5start, sapTPA3start, mortx5start, sapMORT, sapRECR, enderrorsapMORT, enderrorsapRECR, sp22, enderrorsp22error, y3pctdif)#
+#
+}#
+}#
+F5 <- rbind(F5,F4)#
+}#
+#
+F6 <- as.data.table(F5)#
+setnames(F6, c("x3","y3","y5", "TPA","sapTPA", "x5", "DIAmortality", "errory3","errory5", "errorTPA","errorsapTPA", "errorx5","DIAmorterror", "n", "v", "col3", "y3start", "y5start", "TPA3start", "x5start", "sapTPA3start", "DIAmortstart", "sapMORTpct", "sapRECRpct", "enderrorsapMORT", "enderrorsapRECR", "SISPratio", "SISPerror", "y3pctdif"))#
+F6 <- subset(F6, n>350)
+n
+n <- length(f22$xcarbon) #conditional model n
+f22
+F2
+#Convert variables to standard names and metric units#
+F2$DIAmean <- (F2$DIAendmean* 2.54)			#mean tree diameter by plot at resurvey (cm)#
+F2$PREV_DIAmean <- (F2$DIAbeginmean *2.54)	#mean tree diameter by plot at initial survey (cm)#
+F2$TPAsum <- (F2$endsumTPA /0.404686)			#number of trees per hectare by plot at resurvey#
+F2$PREV_TPAsum <- (F2$startsumTPA /0.404686)	#number of trees per hectare by plot at initial survey (cm)#
+F2$PREV_STOCKINGmid <- F2$PREVSTOCKING5mid	#calculated relative stocking by plot at initial survey#
+F2$TPAchg <- (F2$TPAsum-F2$PREV_TPAsum)/F2$REMPER#
+F2$SISPchg<-ifelse(F2$SISP>=300, 1, ifelse(F2$SISP<300, -1, NA) )#
+F2$PREVcarbon1sum<-F2$PREVNPP#
+F2$carbon1sum<-F2$NPP#
+#set grid cell size#
+a <- b <- 2  #2=0.5degrees, 0.5=2degrees#
+	F2$iLAT <- ((ceiling(F2$LAT*a))/a)-0.5 #+0.25  #round down to integer then add .25 ; switched /* removed ).25 addition#
+	F2$iLON <- ((floor(F2$LON*b))/b)+0.5 #-0.25  #round down to integer then subtract .25; switched /*  ).25 addition#
+	F2$LATLONYR <- (F2$iLAT*10000000000000) +(F2$iLON*(-100000000)) +F2$INVYR#
+	F2$LATLON <- as.factor(F2$iLAT*100000000+ F2$iLON*-1000) #LATLON identifyier#
+#
+#Find climate variable mean and range for each grid cell#
+F2$TEMPminLL <- ave(F2$temp5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$TEMPgrowminLL <- ave(F2$temp5grow, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$TEMP5chg <- F2$temp5-F2$TEMPminLL#
+F2$TEMP5growchg <- F2$temp5grow-F2$TEMPgrowminLL#
+F2$TEMP5growchg[is.na(F2$TEMP5growchg)==T] <- 0#
+F2$TEMP5growchg[F2$TEMP5growchg==0] <- rnorm(sum(F2$TEMP5growchg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+#F2$PREC5grow <- F2$PREC5grow*92/3/10 #convert mm/day to cm per month#
+F2$PRECminLL <- ave(F2$PREC5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$PRECgrowminLL <- ave(F2$PREC5grow, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$PREC5chg <- F2$PREC5-F2$PRECminLL#
+F2$PREC5growchg <- F2$PREC5grow-F2$PRECgrowminLL#
+F2$PREC5growchg[F2$PREC5growchg==0] <- rnorm(sum(F2$PREC5growchg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+#
+F2$SWdroughtLL <- ave(F2$SWdrought5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$SWpluvialLL <- ave(F2$SWpluvial5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$SWdrought5chg <- F2$SWdrought5-F2$SWdroughtLL#
+F2$SWpluvial5chg <- F2$SWpluvial5-F2$SWpluvialLL#
+F2$SWpluvial5chg[F2$SWpluvial5chg==0] <- rnorm(sum(F2$SWpluvial5chg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+F2$SWdrought5chg[F2$SWdrought5chg==0] <- rnorm(sum(F2$SWdrought5chg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+F2$nsampTOT <- ave(F2$DIAmean>0,F2$LATLON, FUN=function(x) sum(x, na.rm=TRUE))#
+#
+vari <- c("PREC5growchg", "TEMP5growchg", "SWpluvial5chg", "SWdrought5chg") #"PREC5growchg", "TEMP5growchg"#
+vari1 <- subset(F2, select=c(PREC5growchg, TEMP5growchg, SWpluvial5chg, SWdrought5chg))#
+vari2 <- c("5-yr JJA precip. anomaly (mm/day)", "5-yr JJA temp. anomaly (C)", "1-yr JJA soil moist. anomaly (z-score)", "1-yr JJA soil moist. anomaly (z-score)")
+qt1 <- c(seq(0,1,1/9)/100,seq(1,59,2)/100)#
+qt2 <- c(seq(41,99, 2)/100, seq(99,100,1/9)/100) #0.98, 0.99 added to ease moving average transistion to 1 at end#
+int <- 8#
+F5 <- NULL#
+for(v in 1:3)#
+{v=v#
+F4<-foreach(c = 1:60, .combine=rbind) %dopar%#
+{#
+	if(c<=30 & v<3)#
+	{#
+		f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE)) 		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+		}#
+	if(c>30 & v<3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v])< quantile(vari1[[v]], qt1[d], na.rm=TRUE) & get(vari[v])> quantile(vari1[[v]], qt1[d-int], na.rm=TRUE)) #		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+	if(c<=30 & v==3)#
+	{#
+			f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE)) #exclude droughts#
+			f23 <- subset(F2, get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE) & get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Wet summer"#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+	}#
+	if(c>30 & v==3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v+1])< quantile(vari1[[v+1]], qt1[d], na.rm=TRUE) & get(vari[v+1])> quantile(vari1[[v+1]], qt1[d-int], na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE)) #exclude wet summers  #
+		f23 <- subset(F2, get(vari[v+1])<= quantile(vari1[[v+1]], 0.7, na.rm=TRUE) & get(vari[v+1])>= quantile(vari1[[v+1]], 0.3, na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Dry summer"#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}
+f22$nsamp <- (ave(f22$DIAmean>0,f22$LATLON, FUN=function(x) sum(x, na.rm=TRUE)))/f22$nsampTOT #sample proportion of each grid cell #
+#print(c(table(f22$nsamp<0.75), col3))#
+#
+#f22$col3 <- col3#
+PLT_CNsamp1 <- f23$PLT_CN   #
+#
+f24 <- subset(f22, !duplicated(LATLON), select=c(LATLON, nsamp))#
+#
+F33 <- subset(F2, LATLON %in% (f22$LATLON)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+F33 <- merge(F33, f24, all.x=T, by="LATLON")#
+F33 <- subset(F33, PLT_CN %in% (PLT_CNsamp1)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+#
+F33$aPREVSTOCKDIAbin <- floor(F33$PREV_STOCKINGmid/10)*10000+(floor(F33$PREV_DIAmean/2)*2)#
+F33$n1 <- 1#
+F33$aPREVSTOCKDIAbinlength <- ave(F33$n1, F33$aPREVSTOCKDIAbin, FUN=function(x) sum(x, na.rm=TRUE))#
+F33$nbin <- ave(F33$nsamp, F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))#
+#
+F33 <- subset(F33, aPREVSTOCKDIAbinlength> 25) #Null model needs at least 10 comparison plots at each diameter/stocking bin#
+#
+##Carbon Model#
+c6 <- (((F33$carbon1sum-F33$PREVcarbon1sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgCchg <- (ave(c6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##Carbon Model 5 inch and greater trees#
+c5 <- (((F33$carbon5sum-F33$PREVcarbon5sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgC5chg <- (ave(c5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##radial growth 5,10,15 inch min DIA #
+rx5 <- (F33$DIAgrowmean/F33$REMPER)/2 ## convert from diameter to radial growth#
+F33$avgx5 <- ave(rx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Mortality diameter mean#
+mortrx5 <- F33$mortDIAmean  ##
+F33$avgmortx5 <- ave(mortrx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Density Model#
+y6 <- (F33$TPAsum-F33$PREV_TPAsum)/F33$REMPER  ##
+F33$avgTPAchg <- ave(y6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##SAPLINGS Density Model#
+sap6 <- ((F33$TPAsum05/0.404686)-(F33$PREVTPAsum05/0.404686))/F33$REMPER  # convert to hectares#
+F33$sapavgTPAchg <- ave(sap6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+##SAPLINGS mortality /recruitment#
+F33$sapavgMORT <- ave(F33$sapMortsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling mortality per plot#
+F33$sapavgRECR <- ave(F33$sapRecruitsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling plot recuritment#
+#
+#SISP ratio#
+F33$sp1<- mean(F33$SISPchg, na.rm=T) #F33$nsamp#
+F33$spavgchg <- ave(F33$sp1,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)) #/F33$nbin#
+#
+#Merge null and conditional model data#
+F34 <- subset(F33, !duplicated(aPREVSTOCKDIAbin), select=c(aPREVSTOCKDIAbin, avgCchg, avgx5, avgTPAchg, sapavgTPAchg, avgC5chg, avgmortx5, sapavgMORT, sapavgRECR))#
+f22$aPREVSTOCKDIAbin <- floor(f22$PREV_STOCKINGmid/10)*10000+(floor(f22$PREV_DIAmean/2)*2)#
+f22 <- merge(f22, F34, by="aPREVSTOCKDIAbin") #, all.x=T#
+#
+#carbon 1 and 5 inch#
+c8 <- (((f22$carbon1sum-f22$PREVcarbon1sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon <- ((c8)-f22$avgCchg)#
+#
+c55 <- (((f22$carbon5sum-f22$PREVcarbon5sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon5 <- ((c55)-f22$avgC5chg)#
+#
+##radial growth  #
+x8 <- (f22$DIAgrowmean/f22$REMPER)/2  # convert from diameter to radial growth#
+f22$x5 <-  (x8-f22$avgx5)#
+#
+##mortality size#
+mortx8 <- f22$mortDIAmean ##
+f22$mortx5 <-  (mortx8-f22$avgmortx5)#
+#
+##Density Model#
+TPA <- (f22$TPAsum-f22$PREV_TPAsum)/f22$REMPER  ##
+f22$TPAchg <-  (TPA-f22$avgTPAchg)#
+#
+##SAPLING Density Model#
+sapTPA <- ((f22$TPAsum05/0.404686)-(f22$PREVTPAsum05/0.404686))/f22$REMPER  ##
+f22$sapTPAchg <-  (sapTPA-f22$sapavgTPAchg)#
+f22$sapMORTchg <- (f22$sapMortsum/f22$sapavgMORT)*100 #sapling mortaltiy percent difference from null#
+f22$sapRECRchg <- (f22$sapRecruitsum/f22$sapavgRECR)*100 #sapling recruitment percent difference from null#
+#
+##SISP ratio#
+sp22 <- mean(f22$SISPchg-f22$sapavgTPAchg, na.rm=T)
+#calculate mean condition for x-axis based on v loop#
+if(length(f22$xcarbon)>= 10)#
+{#
+if(v==2)#
+{#
+	x3 <- mean(f22$TEMP5growchg, na.rm=TRUE)#
+}#
+if(v==1)#
+{#
+	x3 <- mean(f22$PREC5growchg, na.rm=TRUE)#
+}#
+if(v==3)#
+{#
+x3 <- ifelse(c<=30,mean(f22$SWpluvial5chg, na.rm=TRUE), mean(f22$SWdrought5chg, na.rm=TRUE))#
+}#
+#
+#calculate y-axis variables#
+y3 <- mean(f22$xcarbon, na.rm=TRUE) #
+y3pctdif<-(mean(f22$xcarbon, na.rm=TRUE)/mean(f22$avgCchg, na.rm=TRUE))*100   ##
+y3start <-  mean(c6, na.rm=T) #null model zero line for plotting#
+y5 <- mean(f22$xcarbon5, na.rm=TRUE)  ##
+y5start <- mean(c5, na.rm=T) #null model zero line for plotting#
+TPA3 <- mean(f22$TPAchg, na.rm=TRUE) ##
+sapTPA3 <- mean(f22$sapTPAchg, na.rm=TRUE) ##
+TPA3start <-  mean(y6, na.rm=T)#
+sapTPA3start <- mean(sap6, na.rm=T)#
+x5 <- mean(f22$x5, na.rm=TRUE) ##
+x5start <-  mean(rx5, na.rm=T)#
+mortx5 <- mean(f22$mortx5, na.rm=TRUE) ##
+mortx5start <-   mean(mortx8, na.rm=T)#
+#
+sapMORT <- mean(f22$sapMORTchg, na.rm=T)#
+sapRECR <- mean(f22$sapRECRchg, na.rm=T)#
+#
+#calc y-axis error#
+R2 <- 100 #repetitions set to 10 for faster looping#
+enderror <- boot(f22$xcarbon, meanFunc, R=R2)#
+enderrory3 <- sqrt(var(enderror$t))*1.96#
+enderror5 <- boot(f22$xcarbon5, meanFunc, R= R2)#
+enderrory5 <- sqrt(var(enderror5$t))*1.96#
+enderror2 <- boot(f22$TPAchg, meanFunc, R= R2)#
+enderrorTPA <- sqrt(var(enderror2$t))*1.96#
+enderrorsap <- boot(f22$sapTPAchg, meanFunc, R= R2)#
+enderrorsapTPA <- sqrt(var(enderrorsap$t))*1.96#
+enderror4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrorx5 <- sqrt(var(enderror4$t))*1.96#
+enderrormort4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrormortx5 <- sqrt(var(enderrormort4$t))*1.96#
+enderrorsapMORT <- std.error(f22$sapMORTchg, na.rm=T)#
+enderrorsapRECR <- std.error(f22$sapRECRchg, na.rm=T)#
+enderrorsp2error <- boot((f22$SISPchg-f22$sapavgTPAchg), meanFunc, R= R2)#
+enderrorsp22error <- sqrt(var(enderrorsp2error$t))*1.96#
+#
+n <- length(f22$xcarbon) #conditional model n#
+nnull <- length(F33$avgx5) #null model n#
+print(c(n, ccond, c, nnull))#
+#
+f23 <- c(x3, y3, y5, TPA3, sapTPA3, x5, mortx5, enderrory3, enderrory5, enderrorTPA, enderrorsapTPA, enderrorx5, enderrormortx5, n, v, col3, y3start, y5start, TPA3start, x5start, sapTPA3start, mortx5start, sapMORT, sapRECR, enderrorsapMORT, enderrorsapRECR, sp22, enderrorsp22error, y3pctdif)#
+#
+}#
+}#
+F5 <- rbind(F5,F4)#
+}#
+#
+F6 <- as.data.table(F5)#
+setnames(F6, c("x3","y3","y5", "TPA","sapTPA", "x5", "DIAmortality", "errory3","errory5", "errorTPA","errorsapTPA", "errorx5","DIAmorterror", "n", "v", "col3", "y3start", "y5start", "TPA3start", "x5start", "sapTPA3start", "DIAmortstart", "sapMORTpct", "sapRECRpct", "enderrorsapMORT", "enderrorsapRECR", "SISPratio", "SISPerror", "y3pctdif"))#
+F6 <- subset(F6, n>350)
+qt1 <- c(seq(0,1,1/9)/100,seq(1,59,2)/100)#
+qt2 <- c(seq(41,99, 2)/100, seq(99,100,1/9)/100) #0.98, 0.99 added to ease moving average transistion to 1 at end#
+int <- 8#
+F5 <- NULL#
+for(v in 1:3)#
+{v=v#
+F4<-foreach(c = 1:60, .combine=rbind) %do%#
+{#
+	if(c<=30 & v<3)#
+	{#
+		f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE)) 		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+		}#
+	if(c>30 & v<3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v])< quantile(vari1[[v]], qt1[d], na.rm=TRUE) & get(vari[v])> quantile(vari1[[v]], qt1[d-int], na.rm=TRUE)) #		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+	if(c<=30 & v==3)#
+	{#
+			f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE)) #exclude droughts#
+			f23 <- subset(F2, get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE) & get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Wet summer"#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+	}#
+	if(c>30 & v==3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v+1])< quantile(vari1[[v+1]], qt1[d], na.rm=TRUE) & get(vari[v+1])> quantile(vari1[[v+1]], qt1[d-int], na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE)) #exclude wet summers  #
+		f23 <- subset(F2, get(vari[v+1])<= quantile(vari1[[v+1]], 0.7, na.rm=TRUE) & get(vari[v+1])>= quantile(vari1[[v+1]], 0.3, na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Dry summer"#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+f22$nsamp <- (ave(f22$DIAmean>0,f22$LATLON, FUN=function(x) sum(x, na.rm=TRUE)))/f22$nsampTOT #sample proportion of each grid cell #
+#print(c(table(f22$nsamp<0.75), col3))#
+#
+#f22$col3 <- col3#
+PLT_CNsamp1 <- f23$PLT_CN   #
+#
+f24 <- subset(f22, !duplicated(LATLON), select=c(LATLON, nsamp))#
+#
+F33 <- subset(F2, LATLON %in% (f22$LATLON)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+F33 <- merge(F33, f24, all.x=T, by="LATLON")#
+F33 <- subset(F33, PLT_CN %in% (PLT_CNsamp1)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+#
+F33$aPREVSTOCKDIAbin <- floor(F33$PREV_STOCKINGmid/10)*10000+(floor(F33$PREV_DIAmean/2)*2)#
+F33$n1 <- 1#
+F33$aPREVSTOCKDIAbinlength <- ave(F33$n1, F33$aPREVSTOCKDIAbin, FUN=function(x) sum(x, na.rm=TRUE))#
+F33$nbin <- ave(F33$nsamp, F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))#
+#
+F33 <- subset(F33, aPREVSTOCKDIAbinlength> 25) #Null model needs at least 10 comparison plots at each diameter/stocking bin#
+#
+##Carbon Model#
+c6 <- (((F33$carbon1sum-F33$PREVcarbon1sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgCchg <- (ave(c6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##Carbon Model 5 inch and greater trees#
+c5 <- (((F33$carbon5sum-F33$PREVcarbon5sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgC5chg <- (ave(c5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##radial growth 5,10,15 inch min DIA #
+rx5 <- (F33$DIAgrowmean/F33$REMPER)/2 ## convert from diameter to radial growth#
+F33$avgx5 <- ave(rx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Mortality diameter mean#
+mortrx5 <- F33$mortDIAmean  ##
+F33$avgmortx5 <- ave(mortrx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Density Model#
+y6 <- (F33$TPAsum-F33$PREV_TPAsum)/F33$REMPER  ##
+F33$avgTPAchg <- ave(y6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##SAPLINGS Density Model#
+sap6 <- ((F33$TPAsum05/0.404686)-(F33$PREVTPAsum05/0.404686))/F33$REMPER  # convert to hectares#
+F33$sapavgTPAchg <- ave(sap6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+##SAPLINGS mortality /recruitment#
+F33$sapavgMORT <- ave(F33$sapMortsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling mortality per plot#
+F33$sapavgRECR <- ave(F33$sapRecruitsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling plot recuritment#
+#
+#SISP ratio#
+F33$sp1<- mean(F33$SISPchg, na.rm=T) #F33$nsamp#
+F33$spavgchg <- ave(F33$sp1,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)) #/F33$nbin#
+#
+#Merge null and conditional model data#
+F34 <- subset(F33, !duplicated(aPREVSTOCKDIAbin), select=c(aPREVSTOCKDIAbin, avgCchg, avgx5, avgTPAchg, sapavgTPAchg, avgC5chg, avgmortx5, sapavgMORT, sapavgRECR))#
+f22$aPREVSTOCKDIAbin <- floor(f22$PREV_STOCKINGmid/10)*10000+(floor(f22$PREV_DIAmean/2)*2)#
+f22 <- merge(f22, F34, by="aPREVSTOCKDIAbin") #, all.x=T#
+#
+#carbon 1 and 5 inch#
+c8 <- (((f22$carbon1sum-f22$PREVcarbon1sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon <- ((c8)-f22$avgCchg)#
+#
+c55 <- (((f22$carbon5sum-f22$PREVcarbon5sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon5 <- ((c55)-f22$avgC5chg)#
+#
+##radial growth  #
+x8 <- (f22$DIAgrowmean/f22$REMPER)/2  # convert from diameter to radial growth#
+f22$x5 <-  (x8-f22$avgx5)#
+#
+##mortality size#
+mortx8 <- f22$mortDIAmean ##
+f22$mortx5 <-  (mortx8-f22$avgmortx5)#
+#
+##Density Model#
+TPA <- (f22$TPAsum-f22$PREV_TPAsum)/f22$REMPER  ##
+f22$TPAchg <-  (TPA-f22$avgTPAchg)#
+#
+##SAPLING Density Model#
+sapTPA <- ((f22$TPAsum05/0.404686)-(f22$PREVTPAsum05/0.404686))/f22$REMPER  ##
+f22$sapTPAchg <-  (sapTPA-f22$sapavgTPAchg)#
+f22$sapMORTchg <- (f22$sapMortsum/f22$sapavgMORT)*100 #sapling mortaltiy percent difference from null#
+f22$sapRECRchg <- (f22$sapRecruitsum/f22$sapavgRECR)*100 #sapling recruitment percent difference from null#
+#
+##SISP ratio#
+sp22 <- mean(f22$SISPchg-f22$sapavgTPAchg, na.rm=T)#
+#calculate mean condition for x-axis based on v loop#
+if(length(f22$xcarbon)>= 10)#
+{#
+if(v==2)#
+{#
+	x3 <- mean(f22$TEMP5growchg, na.rm=TRUE)#
+}#
+if(v==1)#
+{#
+	x3 <- mean(f22$PREC5growchg, na.rm=TRUE)#
+}#
+if(v==3)#
+{#
+x3 <- ifelse(c<=30,mean(f22$SWpluvial5chg, na.rm=TRUE), mean(f22$SWdrought5chg, na.rm=TRUE))#
+}#
+#
+#calculate y-axis variables#
+y3 <- mean(f22$xcarbon, na.rm=TRUE) #
+y3pctdif<-(mean(f22$xcarbon, na.rm=TRUE)/mean(f22$avgCchg, na.rm=TRUE))*100   ##
+y3start <-  mean(c6, na.rm=T) #null model zero line for plotting#
+y5 <- mean(f22$xcarbon5, na.rm=TRUE)  ##
+y5start <- mean(c5, na.rm=T) #null model zero line for plotting#
+TPA3 <- mean(f22$TPAchg, na.rm=TRUE) ##
+sapTPA3 <- mean(f22$sapTPAchg, na.rm=TRUE) ##
+TPA3start <-  mean(y6, na.rm=T)#
+sapTPA3start <- mean(sap6, na.rm=T)#
+x5 <- mean(f22$x5, na.rm=TRUE) ##
+x5start <-  mean(rx5, na.rm=T)#
+mortx5 <- mean(f22$mortx5, na.rm=TRUE) ##
+mortx5start <-   mean(mortx8, na.rm=T)#
+#
+sapMORT <- mean(f22$sapMORTchg, na.rm=T)#
+sapRECR <- mean(f22$sapRECRchg, na.rm=T)#
+#
+#calc y-axis error#
+R2 <- 100 #repetitions set to 10 for faster looping#
+enderror <- boot(f22$xcarbon, meanFunc, R=R2)#
+enderrory3 <- sqrt(var(enderror$t))*1.96#
+enderror5 <- boot(f22$xcarbon5, meanFunc, R= R2)#
+enderrory5 <- sqrt(var(enderror5$t))*1.96#
+enderror2 <- boot(f22$TPAchg, meanFunc, R= R2)#
+enderrorTPA <- sqrt(var(enderror2$t))*1.96#
+enderrorsap <- boot(f22$sapTPAchg, meanFunc, R= R2)#
+enderrorsapTPA <- sqrt(var(enderrorsap$t))*1.96#
+enderror4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrorx5 <- sqrt(var(enderror4$t))*1.96#
+enderrormort4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrormortx5 <- sqrt(var(enderrormort4$t))*1.96#
+enderrorsapMORT <- std.error(f22$sapMORTchg, na.rm=T)#
+enderrorsapRECR <- std.error(f22$sapRECRchg, na.rm=T)#
+enderrorsp2error <- boot((f22$SISPchg-f22$sapavgTPAchg), meanFunc, R= R2)#
+enderrorsp22error <- sqrt(var(enderrorsp2error$t))*1.96#
+#
+n <- length(f22$xcarbon) #conditional model n#
+nnull <- length(F33$avgx5) #null model n#
+print(c(n, ccond, c, nnull))#
+#
+f23 <- c(x3, y3, y5, TPA3, sapTPA3, x5, mortx5, enderrory3, enderrory5, enderrorTPA, enderrorsapTPA, enderrorx5, enderrormortx5, n, v, col3, y3start, y5start, TPA3start, x5start, sapTPA3start, mortx5start, sapMORT, sapRECR, enderrorsapMORT, enderrorsapRECR, sp22, enderrorsp22error, y3pctdif)#
+#
+}#
+}#
+F5 <- rbind(F5,F4)#
+}#
+#
+F6 <- as.data.table(F5)#
+setnames(F6, c("x3","y3","y5", "TPA","sapTPA", "x5", "DIAmortality", "errory3","errory5", "errorTPA","errorsapTPA", "errorx5","DIAmorterror", "n", "v", "col3", "y3start", "y5start", "TPA3start", "x5start", "sapTPA3start", "DIAmortstart", "sapMORTpct", "sapRECRpct", "enderrorsapMORT", "enderrorsapRECR", "SISPratio", "SISPerror", "y3pctdif"))#
+F6 <- subset(F6, n>350)
+registerDoMC(cores=2)
+library(foreach)#
+library(doParallel)#
+library(doMC)
+F2
+vari <- c("PREC5growchg", "TEMP5growchg", "SWpluvial5chg", "SWdrought5chg") #"PREC5growchg", "TEMP5growchg"#
+vari1 <- subset(F2, select=c(PREC5growchg, TEMP5growchg, SWpluvial5chg, SWdrought5chg))#
+vari2 <- c("5-yr JJA precip. anomaly (mm/day)", "5-yr JJA temp. anomaly (C)", "1-yr JJA soil moist. anomaly (z-score)", "1-yr JJA soil moist. anomaly (z-score)")#
+#
+qt1 <- c(seq(0,1,1/9)/100,seq(1,59,2)/100)#
+qt2 <- c(seq(41,99, 2)/100, seq(99,100,1/9)/100) #0.98, 0.99 added to ease moving average transistion to 1 at end#
+int <- 5#
+F5 <- NULL
+if(length(f22$xcarbon)< 10){next}
+c=1
+v=1
+if(c<=30 & v<3)#
+	{#
+		f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE)) 		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+		}#
+	if(c>30 & v<3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v])< quantile(vari1[[v]], qt1[d], na.rm=TRUE) & get(vari[v])> quantile(vari1[[v]], qt1[d-int], na.rm=TRUE)) #		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+	if(c<=30 & v==3)#
+	{#
+			f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE)) #exclude droughts#
+			f23 <- subset(F2, get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE) & get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Wet summer"#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+	}#
+	if(c>30 & v==3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v+1])< quantile(vari1[[v+1]], qt1[d], na.rm=TRUE) & get(vari[v+1])> quantile(vari1[[v+1]], qt1[d-int], na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE)) #exclude wet summers  #
+		f23 <- subset(F2, get(vari[v+1])<= quantile(vari1[[v+1]], 0.7, na.rm=TRUE) & get(vari[v+1])>= quantile(vari1[[v+1]], 0.3, na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Dry summer"#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}
+f22$nsamp <- (ave(f22$DIAmean>0,f22$LATLON, FUN=function(x) sum(x, na.rm=TRUE)))/f22$nsampTOT #sample proportion of each grid cell #
+#print(c(table(f22$nsamp<0.75), col3))#
+#
+#f22$col3 <- col3#
+PLT_CNsamp1 <- f23$PLT_CN   #
+#
+f24 <- subset(f22, !duplicated(LATLON), select=c(LATLON, nsamp))#
+#
+F33 <- subset(F2, LATLON %in% (f22$LATLON)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+F33 <- merge(F33, f24, all.x=T, by="LATLON")#
+F33 <- subset(F33, PLT_CN %in% (PLT_CNsamp1)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+#
+F33$aPREVSTOCKDIAbin <- floor(F33$PREV_STOCKINGmid/10)*10000+(floor(F33$PREV_DIAmean/2)*2)#
+F33$n1 <- 1#
+F33$aPREVSTOCKDIAbinlength <- ave(F33$n1, F33$aPREVSTOCKDIAbin, FUN=function(x) sum(x, na.rm=TRUE))#
+F33$nbin <- ave(F33$nsamp, F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))#
+#
+F33 <- subset(F33, aPREVSTOCKDIAbinlength> 25) #Null model needs at least 10 comparison plots at each diameter/stocking bin#
+#
+##Carbon Model#
+c6 <- (((F33$carbon1sum-F33$PREVcarbon1sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgCchg <- (ave(c6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##Carbon Model 5 inch and greater trees#
+c5 <- (((F33$carbon5sum-F33$PREVcarbon5sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgC5chg <- (ave(c5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##radial growth 5,10,15 inch min DIA #
+rx5 <- (F33$DIAgrowmean/F33$REMPER)/2 ## convert from diameter to radial growth#
+F33$avgx5 <- ave(rx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Mortality diameter mean#
+mortrx5 <- F33$mortDIAmean  ##
+F33$avgmortx5 <- ave(mortrx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Density Model#
+y6 <- (F33$TPAsum-F33$PREV_TPAsum)/F33$REMPER  ##
+F33$avgTPAchg <- ave(y6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##SAPLINGS Density Model#
+sap6 <- ((F33$TPAsum05/0.404686)-(F33$PREVTPAsum05/0.404686))/F33$REMPER  # convert to hectares#
+F33$sapavgTPAchg <- ave(sap6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+##SAPLINGS mortality /recruitment#
+F33$sapavgMORT <- ave(F33$sapMortsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling mortality per plot#
+F33$sapavgRECR <- ave(F33$sapRecruitsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling plot recuritment#
+#
+#SISP ratio#
+F33$sp1<- mean(F33$SISPchg, na.rm=T) #F33$nsamp#
+F33$spavgchg <- ave(F33$sp1,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)) #/F33$nbin#
+#
+#Merge null and conditional model data#
+F34 <- subset(F33, !duplicated(aPREVSTOCKDIAbin), select=c(aPREVSTOCKDIAbin, avgCchg, avgx5, avgTPAchg, sapavgTPAchg, avgC5chg, avgmortx5, sapavgMORT, sapavgRECR))#
+f22$aPREVSTOCKDIAbin <- floor(f22$PREV_STOCKINGmid/10)*10000+(floor(f22$PREV_DIAmean/2)*2)#
+f22 <- merge(f22, F34, by="aPREVSTOCKDIAbin") #, all.x=T#
+#
+#carbon 1 and 5 inch#
+c8 <- (((f22$carbon1sum-f22$PREVcarbon1sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon <- ((c8)-f22$avgCchg)#
+#
+c55 <- (((f22$carbon5sum-f22$PREVcarbon5sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon5 <- ((c55)-f22$avgC5chg)#
+#
+##radial growth  #
+x8 <- (f22$DIAgrowmean/f22$REMPER)/2  # convert from diameter to radial growth#
+f22$x5 <-  (x8-f22$avgx5)#
+#
+##mortality size#
+mortx8 <- f22$mortDIAmean ##
+f22$mortx5 <-  (mortx8-f22$avgmortx5)#
+#
+##Density Model#
+TPA <- (f22$TPAsum-f22$PREV_TPAsum)/f22$REMPER  ##
+f22$TPAchg <-  (TPA-f22$avgTPAchg)#
+#
+##SAPLING Density Model#
+sapTPA <- ((f22$TPAsum05/0.404686)-(f22$PREVTPAsum05/0.404686))/f22$REMPER  ##
+f22$sapTPAchg <-  (sapTPA-f22$sapavgTPAchg)#
+f22$sapMORTchg <- (f22$sapMortsum/f22$sapavgMORT)*100 #sapling mortaltiy percent difference from null#
+f22$sapRECRchg <- (f22$sapRecruitsum/f22$sapavgRECR)*100 #sapling recruitment percent difference from null#
+#
+##SISP ratio#
+sp22 <- mean(f22$SISPchg-f22$sapavgTPAchg, na.rm=T)#
+#
+if(length(f22$xcarbon)< 10){next}#
+#calculate mean condition for x-axis based on v loop#
+if(length(f22$xcarbon)>= 10)#
+{#
+if(v==2)#
+{#
+	x3 <- mean(f22$TEMP5growchg, na.rm=TRUE)#
+}#
+if(v==1)#
+{#
+	x3 <- mean(f22$PREC5growchg, na.rm=TRUE)#
+}#
+if(v==3)#
+{#
+x3 <- ifelse(c<=30,mean(f22$SWpluvial5chg, na.rm=TRUE), mean(f22$SWdrought5chg, na.rm=TRUE))#
+}
+#calculate y-axis variables#
+y3 <- mean(f22$xcarbon, na.rm=TRUE) #
+y3pctdif<-(mean(f22$xcarbon, na.rm=TRUE)/mean(f22$avgCchg, na.rm=TRUE))*100   ##
+y3start <-  mean(c6, na.rm=T) #null model zero line for plotting#
+y5 <- mean(f22$xcarbon5, na.rm=TRUE)  ##
+y5start <- mean(c5, na.rm=T) #null model zero line for plotting#
+TPA3 <- mean(f22$TPAchg, na.rm=TRUE) ##
+sapTPA3 <- mean(f22$sapTPAchg, na.rm=TRUE) ##
+TPA3start <-  mean(y6, na.rm=T)#
+sapTPA3start <- mean(sap6, na.rm=T)#
+x5 <- mean(f22$x5, na.rm=TRUE) ##
+x5start <-  mean(rx5, na.rm=T)#
+mortx5 <- mean(f22$mortx5, na.rm=TRUE) ##
+mortx5start <-   mean(mortx8, na.rm=T)#
+#
+sapMORT <- mean(f22$sapMORTchg, na.rm=T)#
+sapRECR <- mean(f22$sapRECRchg, na.rm=T)#
+#
+#calc y-axis error#
+R2 <- 100 #repetitions set to 10 for faster looping#
+enderror <- boot(f22$xcarbon, meanFunc, R=R2)#
+enderrory3 <- sqrt(var(enderror$t))*1.96#
+enderror5 <- boot(f22$xcarbon5, meanFunc, R= R2)#
+enderrory5 <- sqrt(var(enderror5$t))*1.96#
+enderror2 <- boot(f22$TPAchg, meanFunc, R= R2)#
+enderrorTPA <- sqrt(var(enderror2$t))*1.96#
+enderrorsap <- boot(f22$sapTPAchg, meanFunc, R= R2)#
+enderrorsapTPA <- sqrt(var(enderrorsap$t))*1.96#
+enderror4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrorx5 <- sqrt(var(enderror4$t))*1.96#
+enderrormort4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrormortx5 <- sqrt(var(enderrormort4$t))*1.96#
+enderrorsapMORT <- std.error(f22$sapMORTchg, na.rm=T)#
+enderrorsapRECR <- std.error(f22$sapRECRchg, na.rm=T)#
+enderrorsp2error <- boot((f22$SISPchg-f22$sapavgTPAchg), meanFunc, R= R2)#
+enderrorsp22error <- sqrt(var(enderrorsp2error$t))*1.96#
+#
+n <- length(f22$xcarbon) #conditional model n#
+nnull <- length(F33$avgx5) #null model n#
+print(c(n, ccond, c, nnull))#
+#
+f23 <- c(x3, y3, y5, TPA3, sapTPA3, x5, mortx5, enderrory3, enderrory5, enderrorTPA, enderrorsapTPA, enderrorx5, enderrormortx5, n, v, col3, y3start, y5start, TPA3start, x5start, sapTPA3start, mortx5start, sapMORT, sapRECR, enderrorsapMORT, enderrorsapRECR, sp22, enderrorsp22error, y3pctdif)
+}
+meanFunc <- function(x,i){mean(x[i], na.rm=TRUE)}
+options(scipen=999) #remove sci notation#
+meanFunc <- function(x,i){mean(x[i], na.rm=TRUE)}
+##################################################################################################################
+################ FIGURE 3 - Climate Condition DIVERGENCE #########################################################
+#####
+###
+#
+#palette(adjustcolor(((rich.colors(60))), transform=diag(c(0.85,0.95,0.75,1)))) # alpha.f=0.15 #60#
+#
+#Climate Colors:#
+pt <- "steelblue1" #pluvial trend#
+pe <- "royalblue"	#pluvial event#
+dt <- "goldenrod1" #drought trend#
+de <- "orange2"  	#drought event#
+nt <- "grey55"#
+ne <- "grey35"#
+wt <- "peachpuff"#
+ct <- "slategray1"#
+errorcol <- "grey75"#
+errorlwd <- 0.53#
+ag1 <- 25#
+#
+#S4swPREC <- as.data.table(read.csv("/Volumes/m-z/tda210/USFS/RM5mergedfullcut1991.11.17.2014.csv", header = TRUE, sep = ",", quote="\"", dec="."))#
+F2 <- subset(S4swPREC, temp5grow>0 ) #& SISP<300) #remove any NA's from temperature data#
+#
+#dataset for undisturbed analysis Fig S2#
+if(1==2)#
+{#
+F2$vegetation[F2$vegetation!=0]<-F2$vegetation[F2$vegetation>0]+rnorm(sum(F2$vegetation>0),0, 0.1)#
+vg<-quantile(F2$vegetation[F2$vegetation!=0], 0.99, na.rm=T)#
+F2$unknowndamage[F2$unknowndamage!=0]<-F2$unknowndamage[F2$unknowndamage>0]+rnorm(sum(F2$unknowndamage>0),0, 0.1)#
+un<-quantile(F2$unknowndamage[F2$unknowndamage!=0], 0.98, na.rm=T)#
+F2 <- subset(F2,  unknowndamage<=un & vegetation<=vg & disease==0 & animal==0 & insect==0 & weather==0 & fire==0) #
+}#
+#
+#Convert variables to standard names and metric units#
+F2$DIAmean <- (F2$DIAendmean* 2.54)			#mean tree diameter by plot at resurvey (cm)#
+F2$PREV_DIAmean <- (F2$DIAbeginmean *2.54)	#mean tree diameter by plot at initial survey (cm)#
+F2$TPAsum <- (F2$endsumTPA /0.404686)			#number of trees per hectare by plot at resurvey#
+F2$PREV_TPAsum <- (F2$startsumTPA /0.404686)	#number of trees per hectare by plot at initial survey (cm)#
+F2$PREV_STOCKINGmid <- F2$PREVSTOCKING5mid	#calculated relative stocking by plot at initial survey#
+F2$TPAchg <- (F2$TPAsum-F2$PREV_TPAsum)/F2$REMPER#
+F2$SISPchg<-ifelse(F2$SISP>=300, 1, ifelse(F2$SISP<300, -1, NA) )#
+F2$PREVcarbon1sum<-F2$PREVNPP#
+F2$carbon1sum<-F2$NPP#
+#set grid cell size#
+a <- b <- 2  #2=0.5degrees, 0.5=2degrees#
+	F2$iLAT <- ((ceiling(F2$LAT*a))/a)-0.5 #+0.25  #round down to integer then add .25 ; switched /* removed ).25 addition#
+	F2$iLON <- ((floor(F2$LON*b))/b)+0.5 #-0.25  #round down to integer then subtract .25; switched /*  ).25 addition#
+	F2$LATLONYR <- (F2$iLAT*10000000000000) +(F2$iLON*(-100000000)) +F2$INVYR#
+	F2$LATLON <- as.factor(F2$iLAT*100000000+ F2$iLON*-1000) #LATLON identifyier#
+#
+#Find climate variable mean and range for each grid cell#
+F2$TEMPminLL <- ave(F2$temp5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$TEMPgrowminLL <- ave(F2$temp5grow, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$TEMP5chg <- F2$temp5-F2$TEMPminLL#
+F2$TEMP5growchg <- F2$temp5grow-F2$TEMPgrowminLL#
+F2$TEMP5growchg[is.na(F2$TEMP5growchg)==T] <- 0#
+F2$TEMP5growchg[F2$TEMP5growchg==0] <- rnorm(sum(F2$TEMP5growchg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+#F2$PREC5grow <- F2$PREC5grow*92/3/10 #convert mm/day to cm per month#
+F2$PRECminLL <- ave(F2$PREC5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$PRECgrowminLL <- ave(F2$PREC5grow, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$PREC5chg <- F2$PREC5-F2$PRECminLL#
+F2$PREC5growchg <- F2$PREC5grow-F2$PRECgrowminLL#
+F2$PREC5growchg[F2$PREC5growchg==0] <- rnorm(sum(F2$PREC5growchg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+#
+F2$SWdroughtLL <- ave(F2$SWdrought5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$SWpluvialLL <- ave(F2$SWpluvial5, F2$LATLON, FUN=function(x) median(x, na.rm=TRUE))#
+F2$SWdrought5chg <- F2$SWdrought5-F2$SWdroughtLL#
+F2$SWpluvial5chg <- F2$SWpluvial5-F2$SWpluvialLL#
+F2$SWpluvial5chg[F2$SWpluvial5chg==0] <- rnorm(sum(F2$SWpluvial5chg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+F2$SWdrought5chg[F2$SWdrought5chg==0] <- rnorm(sum(F2$SWdrought5chg==0),0,sd=0.01) #make median 0 value a distribution for subseting#
+F2$nsampTOT <- ave(F2$DIAmean>0,F2$LATLON, FUN=function(x) sum(x, na.rm=TRUE))#
+#
+vari <- c("PREC5growchg", "TEMP5growchg", "SWpluvial5chg", "SWdrought5chg") #"PREC5growchg", "TEMP5growchg"#
+vari1 <- subset(F2, select=c(PREC5growchg, TEMP5growchg, SWpluvial5chg, SWdrought5chg))#
+vari2 <- c("5-yr JJA precip. anomaly (mm/day)", "5-yr JJA temp. anomaly (C)", "1-yr JJA soil moist. anomaly (z-score)", "1-yr JJA soil moist. anomaly (z-score)")#
+#
+qt1 <- c(seq(0,1,1/9)/100,seq(1,59,2)/100)#
+qt2 <- c(seq(41,99, 2)/100, seq(99,100,1/9)/100) #0.98, 0.99 added to ease moving average transistion to 1 at end#
+int <- 5#
+F5 <- NULL#
+for(v in 1:3)#
+{v=v#
+F4<-foreach(c = 1:60, .combine=rbind) %dopar%#
+{#
+	if(c<=30 & v<3)#
+	{#
+		f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE)) 		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+		}#
+	if(c>30 & v<3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v])< quantile(vari1[[v]], qt1[d], na.rm=TRUE) & get(vari[v])> quantile(vari1[[v]], qt1[d-int], na.rm=TRUE)) #		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+	if(c<=30 & v==3)#
+	{#
+			f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE)) #exclude droughts#
+			f23 <- subset(F2, get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE) & get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Wet summer"#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+	}#
+	if(c>30 & v==3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v+1])< quantile(vari1[[v+1]], qt1[d], na.rm=TRUE) & get(vari[v+1])> quantile(vari1[[v+1]], qt1[d-int], na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE)) #exclude wet summers  #
+		f23 <- subset(F2, get(vari[v+1])<= quantile(vari1[[v+1]], 0.7, na.rm=TRUE) & get(vari[v+1])>= quantile(vari1[[v+1]], 0.3, na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Dry summer"#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+f22$nsamp <- (ave(f22$DIAmean>0,f22$LATLON, FUN=function(x) sum(x, na.rm=TRUE)))/f22$nsampTOT #sample proportion of each grid cell #
+#print(c(table(f22$nsamp<0.75), col3))#
+#
+#f22$col3 <- col3#
+PLT_CNsamp1 <- f23$PLT_CN   #
+#
+f24 <- subset(f22, !duplicated(LATLON), select=c(LATLON, nsamp))#
+#
+F33 <- subset(F2, LATLON %in% (f22$LATLON)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+F33 <- merge(F33, f24, all.x=T, by="LATLON")#
+F33 <- subset(F33, PLT_CN %in% (PLT_CNsamp1)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+#
+F33$aPREVSTOCKDIAbin <- floor(F33$PREV_STOCKINGmid/10)*10000+(floor(F33$PREV_DIAmean/2)*2)#
+F33$n1 <- 1#
+F33$aPREVSTOCKDIAbinlength <- ave(F33$n1, F33$aPREVSTOCKDIAbin, FUN=function(x) sum(x, na.rm=TRUE))#
+F33$nbin <- ave(F33$nsamp, F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))#
+#
+F33 <- subset(F33, aPREVSTOCKDIAbinlength> 25) #Null model needs at least 10 comparison plots at each diameter/stocking bin#
+#
+##Carbon Model#
+c6 <- (((F33$carbon1sum-F33$PREVcarbon1sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgCchg <- (ave(c6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##Carbon Model 5 inch and greater trees#
+c5 <- (((F33$carbon5sum-F33$PREVcarbon5sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgC5chg <- (ave(c5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##radial growth 5,10,15 inch min DIA #
+rx5 <- (F33$DIAgrowmean/F33$REMPER)/2 ## convert from diameter to radial growth#
+F33$avgx5 <- ave(rx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Mortality diameter mean#
+mortrx5 <- F33$mortDIAmean  ##
+F33$avgmortx5 <- ave(mortrx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Density Model#
+y6 <- (F33$TPAsum-F33$PREV_TPAsum)/F33$REMPER  ##
+F33$avgTPAchg <- ave(y6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##SAPLINGS Density Model#
+sap6 <- ((F33$TPAsum05/0.404686)-(F33$PREVTPAsum05/0.404686))/F33$REMPER  # convert to hectares#
+F33$sapavgTPAchg <- ave(sap6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+##SAPLINGS mortality /recruitment#
+F33$sapavgMORT <- ave(F33$sapMortsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling mortality per plot#
+F33$sapavgRECR <- ave(F33$sapRecruitsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling plot recuritment#
+#
+#SISP ratio#
+F33$sp1<- mean(F33$SISPchg, na.rm=T) #F33$nsamp#
+F33$spavgchg <- ave(F33$sp1,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)) #/F33$nbin#
+#
+#Merge null and conditional model data#
+F34 <- subset(F33, !duplicated(aPREVSTOCKDIAbin), select=c(aPREVSTOCKDIAbin, avgCchg, avgx5, avgTPAchg, sapavgTPAchg, avgC5chg, avgmortx5, sapavgMORT, sapavgRECR))#
+f22$aPREVSTOCKDIAbin <- floor(f22$PREV_STOCKINGmid/10)*10000+(floor(f22$PREV_DIAmean/2)*2)#
+f22 <- merge(f22, F34, by="aPREVSTOCKDIAbin") #, all.x=T#
+#
+#carbon 1 and 5 inch#
+c8 <- (((f22$carbon1sum-f22$PREVcarbon1sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon <- ((c8)-f22$avgCchg)#
+#
+c55 <- (((f22$carbon5sum-f22$PREVcarbon5sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon5 <- ((c55)-f22$avgC5chg)#
+#
+##radial growth  #
+x8 <- (f22$DIAgrowmean/f22$REMPER)/2  # convert from diameter to radial growth#
+f22$x5 <-  (x8-f22$avgx5)#
+#
+##mortality size#
+mortx8 <- f22$mortDIAmean ##
+f22$mortx5 <-  (mortx8-f22$avgmortx5)#
+#
+##Density Model#
+TPA <- (f22$TPAsum-f22$PREV_TPAsum)/f22$REMPER  ##
+f22$TPAchg <-  (TPA-f22$avgTPAchg)#
+#
+##SAPLING Density Model#
+sapTPA <- ((f22$TPAsum05/0.404686)-(f22$PREVTPAsum05/0.404686))/f22$REMPER  ##
+f22$sapTPAchg <-  (sapTPA-f22$sapavgTPAchg)#
+f22$sapMORTchg <- (f22$sapMortsum/f22$sapavgMORT)*100 #sapling mortaltiy percent difference from null#
+f22$sapRECRchg <- (f22$sapRecruitsum/f22$sapavgRECR)*100 #sapling recruitment percent difference from null#
+#
+##SISP ratio#
+sp22 <- mean(f22$SISPchg-f22$sapavgTPAchg, na.rm=T)#
+#
+if(length(f22$xcarbon)< 10){next}#
+#calculate mean condition for x-axis based on v loop#
+if(length(f22$xcarbon)>= 10)#
+{#
+if(v==2)#
+{#
+	x3 <- mean(f22$TEMP5growchg, na.rm=TRUE)#
+}#
+if(v==1)#
+{#
+	x3 <- mean(f22$PREC5growchg, na.rm=TRUE)#
+}#
+if(v==3)#
+{#
+x3 <- ifelse(c<=30,mean(f22$SWpluvial5chg, na.rm=TRUE), mean(f22$SWdrought5chg, na.rm=TRUE))#
+}#
+#
+#calculate y-axis variables#
+y3 <- mean(f22$xcarbon, na.rm=TRUE) #
+y3pctdif<-(mean(f22$xcarbon, na.rm=TRUE)/mean(f22$avgCchg, na.rm=TRUE))*100   ##
+y3start <-  mean(c6, na.rm=T) #null model zero line for plotting#
+y5 <- mean(f22$xcarbon5, na.rm=TRUE)  ##
+y5start <- mean(c5, na.rm=T) #null model zero line for plotting#
+TPA3 <- mean(f22$TPAchg, na.rm=TRUE) ##
+sapTPA3 <- mean(f22$sapTPAchg, na.rm=TRUE) ##
+TPA3start <-  mean(y6, na.rm=T)#
+sapTPA3start <- mean(sap6, na.rm=T)#
+x5 <- mean(f22$x5, na.rm=TRUE) ##
+x5start <-  mean(rx5, na.rm=T)#
+mortx5 <- mean(f22$mortx5, na.rm=TRUE) ##
+mortx5start <-   mean(mortx8, na.rm=T)#
+#
+sapMORT <- mean(f22$sapMORTchg, na.rm=T)#
+sapRECR <- mean(f22$sapRECRchg, na.rm=T)#
+#
+#calc y-axis error#
+R2 <- 100 #repetitions set to 10 for faster looping#
+enderror <- boot(f22$xcarbon, meanFunc, R=R2)#
+enderrory3 <- sqrt(var(enderror$t))*1.96#
+enderror5 <- boot(f22$xcarbon5, meanFunc, R= R2)#
+enderrory5 <- sqrt(var(enderror5$t))*1.96#
+enderror2 <- boot(f22$TPAchg, meanFunc, R= R2)#
+enderrorTPA <- sqrt(var(enderror2$t))*1.96#
+enderrorsap <- boot(f22$sapTPAchg, meanFunc, R= R2)#
+enderrorsapTPA <- sqrt(var(enderrorsap$t))*1.96#
+enderror4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrorx5 <- sqrt(var(enderror4$t))*1.96#
+enderrormort4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrormortx5 <- sqrt(var(enderrormort4$t))*1.96#
+enderrorsapMORT <- std.error(f22$sapMORTchg, na.rm=T)#
+enderrorsapRECR <- std.error(f22$sapRECRchg, na.rm=T)#
+enderrorsp2error <- boot((f22$SISPchg-f22$sapavgTPAchg), meanFunc, R= R2)#
+enderrorsp22error <- sqrt(var(enderrorsp2error$t))*1.96#
+#
+n <- length(f22$xcarbon) #conditional model n#
+nnull <- length(F33$avgx5) #null model n#
+print(c(n, ccond, c, nnull))#
+#
+f23 <- c(x3, y3, y5, TPA3, sapTPA3, x5, mortx5, enderrory3, enderrory5, enderrorTPA, enderrorsapTPA, enderrorx5, enderrormortx5, n, v, col3, y3start, y5start, TPA3start, x5start, sapTPA3start, mortx5start, sapMORT, sapRECR, enderrorsapMORT, enderrorsapRECR, sp22, enderrorsp22error, y3pctdif)#
+#
+}#
+}#
+F5 <- rbind(F5,F4)#
+}#
+#
+F6 <- as.data.table(F5)#
+setnames(F6, c("x3","y3","y5", "TPA","sapTPA", "x5", "DIAmortality", "errory3","errory5", "errorTPA","errorsapTPA", "errorx5","DIAmorterror", "n", "v", "col3", "y3start", "y5start", "TPA3start", "x5start", "sapTPA3start", "DIAmortstart", "sapMORTpct", "sapRECRpct", "enderrorsapMORT", "enderrorsapRECR", "SISPratio", "SISPerror", "y3pctdif"))#
+F6 <- subset(F6, n>350) #
+#
+#convert radial growth from cm to mm#
+F6$x5 <- F6$x5*10 #
+F6$errorx5 <- F6$errorx5*10#
+#convert to percent difference#
+F6$sapMORTpct <-  (F6$sapMORTpct-100)#
+F6$sapRECRpct <-  (F6$sapRECRpct-100)#
+F6$sapCpct <-  ((F6$y3-F6$y5)/F6$y3)*100
+vari <- c("PREC5growchg", "TEMP5growchg", "SWpluvial5chg", "SWdrought5chg") #"PREC5growchg", "TEMP5growchg"#
+vari1 <- subset(F2, select=c(PREC5growchg, TEMP5growchg, SWpluvial5chg, SWdrought5chg))#
+vari2 <- c("5-yr JJA precip. anomaly (mm/day)", "5-yr JJA temp. anomaly (C)", "1-yr JJA soil moist. anomaly (z-score)", "1-yr JJA soil moist. anomaly (z-score)")#
+#
+qt1 <- c(seq(0,1,1/9)/100,seq(1,59,2)/100)#
+qt2 <- c(seq(41,99, 2)/100, seq(99,100,1/9)/100) #0.98, 0.99 added to ease moving average transistion to 1 at end#
+int <- 5#
+F5 <- NULL#
+for(v in 1:3)#
+{v=v#
+F4<-foreach(c = 1:60, .combine=rbind) %dopar%#
+{#
+	if(c<=30 & v<3)#
+	{#
+		f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE)) 		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+		}#
+	if(c>30 & v<3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v])< quantile(vari1[[v]], qt1[d], na.rm=TRUE) & get(vari[v])> quantile(vari1[[v]], qt1[d-int], na.rm=TRUE)) #		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+	if(c<=30 & v==3)#
+	{#
+			f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE)) #exclude droughts#
+			f23 <- subset(F2, get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE) & get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Wet summer"#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+	}#
+	if(c>30 & v==3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v+1])< quantile(vari1[[v+1]], qt1[d], na.rm=TRUE) & get(vari[v+1])> quantile(vari1[[v+1]], qt1[d-int], na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE)) #exclude wet summers  #
+		f23 <- subset(F2, get(vari[v+1])<= quantile(vari1[[v+1]], 0.7, na.rm=TRUE) & get(vari[v+1])>= quantile(vari1[[v+1]], 0.3, na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Dry summer"#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+f22$nsamp <- (ave(f22$DIAmean>0,f22$LATLON, FUN=function(x) sum(x, na.rm=TRUE)))/f22$nsampTOT #sample proportion of each grid cell #
+#print(c(table(f22$nsamp<0.75), col3))#
+#
+#f22$col3 <- col3#
+PLT_CNsamp1 <- f23$PLT_CN   #
+#
+f24 <- subset(f22, !duplicated(LATLON), select=c(LATLON, nsamp))#
+#
+F33 <- subset(F2, LATLON %in% (f22$LATLON)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+F33 <- merge(F33, f24, all.x=T, by="LATLON")#
+F33 <- subset(F33, PLT_CN %in% (PLT_CNsamp1)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+#
+F33$aPREVSTOCKDIAbin <- floor(F33$PREV_STOCKINGmid/10)*10000+(floor(F33$PREV_DIAmean/2)*2)#
+F33$n1 <- 1#
+F33$aPREVSTOCKDIAbinlength <- ave(F33$n1, F33$aPREVSTOCKDIAbin, FUN=function(x) sum(x, na.rm=TRUE))#
+F33$nbin <- ave(F33$nsamp, F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))#
+#
+F33 <- subset(F33, aPREVSTOCKDIAbinlength> 25) #Null model needs at least 10 comparison plots at each diameter/stocking bin#
+#
+##Carbon Model#
+c6 <- (((F33$carbon1sum-F33$PREVcarbon1sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgCchg <- (ave(c6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##Carbon Model 5 inch and greater trees#
+c5 <- (((F33$carbon5sum-F33$PREVcarbon5sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgC5chg <- (ave(c5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##radial growth 5,10,15 inch min DIA #
+rx5 <- (F33$DIAgrowmean/F33$REMPER)/2 ## convert from diameter to radial growth#
+F33$avgx5 <- ave(rx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Mortality diameter mean#
+mortrx5 <- F33$mortDIAmean  ##
+F33$avgmortx5 <- ave(mortrx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Density Model#
+y6 <- (F33$TPAsum-F33$PREV_TPAsum)/F33$REMPER  ##
+F33$avgTPAchg <- ave(y6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##SAPLINGS Density Model#
+sap6 <- ((F33$TPAsum05/0.404686)-(F33$PREVTPAsum05/0.404686))/F33$REMPER  # convert to hectares#
+F33$sapavgTPAchg <- ave(sap6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+##SAPLINGS mortality /recruitment#
+F33$sapavgMORT <- ave(F33$sapMortsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling mortality per plot#
+F33$sapavgRECR <- ave(F33$sapRecruitsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling plot recuritment#
+#
+#SISP ratio#
+F33$sp1<- mean(F33$SISPchg, na.rm=T) #F33$nsamp#
+F33$spavgchg <- ave(F33$sp1,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)) #/F33$nbin#
+#
+#Merge null and conditional model data#
+F34 <- subset(F33, !duplicated(aPREVSTOCKDIAbin), select=c(aPREVSTOCKDIAbin, avgCchg, avgx5, avgTPAchg, sapavgTPAchg, avgC5chg, avgmortx5, sapavgMORT, sapavgRECR))#
+f22$aPREVSTOCKDIAbin <- floor(f22$PREV_STOCKINGmid/10)*10000+(floor(f22$PREV_DIAmean/2)*2)#
+f22 <- merge(f22, F34, by="aPREVSTOCKDIAbin") #, all.x=T#
+#
+#carbon 1 and 5 inch#
+c8 <- (((f22$carbon1sum-f22$PREVcarbon1sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon <- ((c8)-f22$avgCchg)#
+#
+c55 <- (((f22$carbon5sum-f22$PREVcarbon5sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon5 <- ((c55)-f22$avgC5chg)#
+#
+##radial growth  #
+x8 <- (f22$DIAgrowmean/f22$REMPER)/2  # convert from diameter to radial growth#
+f22$x5 <-  (x8-f22$avgx5)#
+#
+##mortality size#
+mortx8 <- f22$mortDIAmean ##
+f22$mortx5 <-  (mortx8-f22$avgmortx5)#
+#
+##Density Model#
+TPA <- (f22$TPAsum-f22$PREV_TPAsum)/f22$REMPER  ##
+f22$TPAchg <-  (TPA-f22$avgTPAchg)#
+#
+##SAPLING Density Model#
+sapTPA <- ((f22$TPAsum05/0.404686)-(f22$PREVTPAsum05/0.404686))/f22$REMPER  ##
+f22$sapTPAchg <-  (sapTPA-f22$sapavgTPAchg)#
+f22$sapMORTchg <- (f22$sapMortsum/f22$sapavgMORT)*100 #sapling mortaltiy percent difference from null#
+f22$sapRECRchg <- (f22$sapRecruitsum/f22$sapavgRECR)*100 #sapling recruitment percent difference from null#
+#
+##SISP ratio#
+sp22 <- mean(f22$SISPchg-f22$sapavgTPAchg, na.rm=T)#
+#
+#calculate mean condition for x-axis based on v loop#
+if(length(f22$xcarbon)>= 10)#
+{#
+if(v==2)#
+{#
+	x3 <- mean(f22$TEMP5growchg, na.rm=TRUE)#
+}#
+if(v==1)#
+{#
+	x3 <- mean(f22$PREC5growchg, na.rm=TRUE)#
+}#
+if(v==3)#
+{#
+x3 <- ifelse(c<=30,mean(f22$SWpluvial5chg, na.rm=TRUE), mean(f22$SWdrought5chg, na.rm=TRUE))#
+}#
+#
+#calculate y-axis variables#
+y3 <- mean(f22$xcarbon, na.rm=TRUE) #
+y3pctdif<-(mean(f22$xcarbon, na.rm=TRUE)/mean(f22$avgCchg, na.rm=TRUE))*100   ##
+y3start <-  mean(c6, na.rm=T) #null model zero line for plotting#
+y5 <- mean(f22$xcarbon5, na.rm=TRUE)  ##
+y5start <- mean(c5, na.rm=T) #null model zero line for plotting#
+TPA3 <- mean(f22$TPAchg, na.rm=TRUE) ##
+sapTPA3 <- mean(f22$sapTPAchg, na.rm=TRUE) ##
+TPA3start <-  mean(y6, na.rm=T)#
+sapTPA3start <- mean(sap6, na.rm=T)#
+x5 <- mean(f22$x5, na.rm=TRUE) ##
+x5start <-  mean(rx5, na.rm=T)#
+mortx5 <- mean(f22$mortx5, na.rm=TRUE) ##
+mortx5start <-   mean(mortx8, na.rm=T)#
+#
+sapMORT <- mean(f22$sapMORTchg, na.rm=T)#
+sapRECR <- mean(f22$sapRECRchg, na.rm=T)#
+#
+#calc y-axis error#
+R2 <- 100 #repetitions set to 10 for faster looping#
+enderror <- boot(f22$xcarbon, meanFunc, R=R2)#
+enderrory3 <- sqrt(var(enderror$t))*1.96#
+enderror5 <- boot(f22$xcarbon5, meanFunc, R= R2)#
+enderrory5 <- sqrt(var(enderror5$t))*1.96#
+enderror2 <- boot(f22$TPAchg, meanFunc, R= R2)#
+enderrorTPA <- sqrt(var(enderror2$t))*1.96#
+enderrorsap <- boot(f22$sapTPAchg, meanFunc, R= R2)#
+enderrorsapTPA <- sqrt(var(enderrorsap$t))*1.96#
+enderror4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrorx5 <- sqrt(var(enderror4$t))*1.96#
+enderrormort4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrormortx5 <- sqrt(var(enderrormort4$t))*1.96#
+enderrorsapMORT <- std.error(f22$sapMORTchg, na.rm=T)#
+enderrorsapRECR <- std.error(f22$sapRECRchg, na.rm=T)#
+enderrorsp2error <- boot((f22$SISPchg-f22$sapavgTPAchg), meanFunc, R= R2)#
+enderrorsp22error <- sqrt(var(enderrorsp2error$t))*1.96#
+#
+n <- length(f22$xcarbon) #conditional model n#
+nnull <- length(F33$avgx5) #null model n#
+print(c(n, ccond, c, nnull))#
+#
+f23 <- c(x3, y3, y5, TPA3, sapTPA3, x5, mortx5, enderrory3, enderrory5, enderrorTPA, enderrorsapTPA, enderrorx5, enderrormortx5, n, v, col3, y3start, y5start, TPA3start, x5start, sapTPA3start, mortx5start, sapMORT, sapRECR, enderrorsapMORT, enderrorsapRECR, sp22, enderrorsp22error, y3pctdif)#
+#
+}#
+}#
+F5 <- rbind(F5,F4)#
+}#
+#
+F6 <- as.data.table(F5)#
+setnames(F6, c("x3","y3","y5", "TPA","sapTPA", "x5", "DIAmortality", "errory3","errory5", "errorTPA","errorsapTPA", "errorx5","DIAmorterror", "n", "v", "col3", "y3start", "y5start", "TPA3start", "x5start", "sapTPA3start", "DIAmortstart", "sapMORTpct", "sapRECRpct", "enderrorsapMORT", "enderrorsapRECR", "SISPratio", "SISPerror", "y3pctdif"))#
+F6 <- subset(F6, n>350)
+F6 <- as.data.table(F5)#
+setnames(F6, c("x3","y3","y5", "TPA","sapTPA", "x5", "DIAmortality", "errory3","errory5", "errorTPA","errorsapTPA", "errorx5","DIAmorterror", "n", "v", "col3", "y3start", "y5start", "TPA3start", "x5start", "sapTPA3start", "DIAmortstart", "sapMORTpct", "sapRECRpct", "enderrorsapMORT", "enderrorsapRECR", "SISPratio", "SISPerror", "y3pctdif"))
+#convert radial growth from cm to mm#
+F6$x5 <- F6$x5*10 #
+F6$errorx5 <- F6$errorx5*10#
+#convert to percent difference#
+F6$sapMORTpct <-  (F6$sapMORTpct-100)#
+F6$sapRECRpct <-  (F6$sapRECRpct-100)#
+F6$sapCpct <-  ((F6$y3-F6$y5)/F6$y3)*100#
+#calc plot y-scales#
+sapscale  <-  30 #mean(F6$sapTPA3start)/mean(F6$TPA3start) #
+Cymax  <-  max(F6$y3+F6$errory3)#
+Cymin  <-  min(F6$y3-F6$errory3)#
+TPAymax <- max(F6$sapTPA/sapscale+F6$errorsapTPA/sapscale, na.rm=T)#
+#TPAymax <- (max(F6$sapTPA+F6$errorsapTPA))/sapscale#
+TPAymin <- min(F6$TPA-F6$errorTPA)#
+#TPAymin <- (min(F6$sapTPA-F6$errorsapTPA))/sapscale#
+DIAmax <- max(F6$x5+F6$errorx5)#
+DIAmin <- min(F6$x5-F6$errorx5)#
+sapmax <- max(F6$sapMORTpct+F6$enderrorsapMORT)#
+sapmin <- min(F6$sapMORTpct-F6$enderrorsapMORT)#
+#
+#plot only sapling data that is significantly different with scaling than larger trees. #
+F6$sapTPA <- ifelse(((F6$sapTPA/sapscale)>(F6$TPA+F6$errorTPA))|((F6$sapTPA/sapscale)<(F6$TPA-F6$errorTPA)), F6$sapTPA, NA)#
+#
+#set up 5-year precip plots using ggplot#
+F7 <- subset(F6, v==1)#
+F7$sapTPA <- ifelse(F7$col3==2,NA, F7$sapTPA)#
+v=1#
+y3start1 <-mean(F6$y3start)#
+TPA3start1 <-mean(F6$TPA3start) #mean(F2$TPAchg) ##
+sapTPA3start1 <-mean(F6$sapTPA3start)#
+x5start1 <- mean((F6$x5start)*10)#
+col4 <- c(dt,"grey35", pt)#
+#
+#NPP plot#
+#limitssap <- aes(ymax=(y5/y5scale +errorsapTPA/sapscale)+TPA3start1, ymin=(sapTPA/sapscale-errorsapTPA/sapscale)+TPA3start1)#
+limits <- aes(ymax=(y3+errory3)+y3start1, ymin=(y3-errory3+y3start1))#
+P1 <- ggplot(F7, aes(x=x3, y=(y3+y3start1), fill=as.factor(col3)))  +geom_hline(y=y3start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21)  + theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA))  + theme(axis.text.y = element_text(angle = 90, hjust = 0.5, size=11, colour="black"))+ theme(axis.text.x = element_blank())+ scale_y_continuous(name=expression(paste(Delta, " NPP (Mg C ha"^"-1","yr" ^"-1",")")), limits=c(Cymin, Cymax)+y3start1, breaks=c(1.1, 1.4, round(y3start1, 2), 2.0, 2.3), labels=c(1.1, 1.4, round(y3start1, 1), 2.0, 2.3)) + scale_x_continuous(element_blank(), breaks=c(-0.5, 0, 0.5))+ theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_fill_manual( name=NULL, breaks=c("1", "3"), label=c( "Dry 5-yr period", "Wet 5-yr period"), values=c(col4)) #
+#Stem density plot#
+limits <- aes(ymax=(TPA+errorTPA)+TPA3start1, ymin=(TPA-errorTPA)+TPA3start1)#
+limitssap <- aes(ymax=(sapTPA/sapscale +errorsapTPA/sapscale)+TPA3start1, ymin=(sapTPA/sapscale-errorsapTPA/sapscale)+TPA3start1)#
+P2 <- ggplot(F7, aes(x=x3, y=(TPA+TPA3start1), fill=as.factor(col3)))  +geom_hline(y=TPA3start1, linetype=3) +geom_vline(linetype=3) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(-0.07, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y = element_text(angle = 90, hjust = 0.5, size=11, colour="black"))+ theme(axis.text.x = element_blank())+ scale_y_continuous(name=expression(paste(Delta, " Stem density (ha"^"-1","yr" ^"-1",")")), limits=c(TPAymin, TPAymax)+TPA3start1, breaks=c(2.0, 4.4866, 7.0), labels=c(expression("2.0"[" (-40)"]), expression("4.5" [" (35)"]), expression("7.0" [" (110)"]))) + scale_x_continuous(element_blank(), breaks=c(-0.5, 0, 0.5)) +scale_fill_manual(values=c(col4), breaks=NULL) +geom_errorbar(limitssap, width=0.01, colour="grey70") + geom_point(aes( y=(sapTPA/sapscale)+ TPA3start1, col=as.factor(col3)), size=1.5, pch=8) + theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0.15,0), "cm")) +scale_colour_manual(values=c(col9), name=NULL, breaks=c("2"), label=c("(Saplings)"))+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21) #
+#
+#Radial growth plot#
+limits <- aes(ymax=(x5+errorx5)+x5start1, ymin=(x5-errorx5)+x5start1)#
+P3 <- ggplot(F7, aes(x=x3, y=(x5+x5start1), fill=as.factor(col3)))  +geom_hline(y=x5start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0.27,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA))  + theme(axis.text.y = element_text(angle = 90, hjust = 0.5, size=11, colour="black"))+ theme(axis.text.x = element_text( hjust = 0.5, size=11, colour="black"))+ scale_y_continuous(name=expression(paste("Radial growth (mm yr" ^"-1",")")), limits=c(DIAmin, DIAmax)+x5start1, breaks=c(-0.05, 0, 0.05)+x5start1, labels=c(-0.05, 0, 0.05)+round(x5start1,2)) + scale_x_continuous(name=expression(paste("   Precipitation JJA 5-yr\nmean anomaly (mm day"^"-1",")")), breaks=c(-0.5, 0, 0.5)) +scale_fill_manual(values=c(col4)) + theme(axis.title.x = element_text(vjust=-0.85))#
+#set up 5-year TEMP plots using ggplot#
+F8 <- subset(F6, v==2) # & x3>0.2)#
+v=2#
+col8 <- c(ct,"grey35", wt)#
+#NPP plot#
+limits <- aes(ymax=(y3+errory3)+y3start1, ymin=(y3-errory3+y3start1))#
+T1 <- ggplot(F8, aes(x=x3, y=(y3+y3start1), fill=as.factor(col3)))  +geom_hline(y=y3start1, linetype=3)+geom_vline(linetype=3)+ geom_errorbar(limits, width=0.01, colour="grey50")+ geom_point(colour="grey25", size=2.5, pch=21) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y = element_blank())+ theme(axis.text.x =element_blank())+ scale_y_continuous(element_blank(), limits=c(Cymin, Cymax)+y3start1, breaks=c(1.1, 1.4, round(y3start1, 2), 2.0, 2.3)) + scale_x_continuous(element_blank(),breaks=c(-0.5, 0, 0.5, 1.0))+ theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_fill_manual( name=NULL, breaks=c("1", "3"), label=c("Cool 5-yr period", "Warm 5-yr period"), values=c(col8))#
+#
+#stem density#
+limits <- aes(ymax=(TPA+errorTPA)+TPA3start1, ymin=(TPA-errorTPA)+TPA3start1)#
+T2 <- ggplot(F8,aes(x=x3, y=(TPA+TPA3start1), fill=as.factor(col3)))    +geom_hline(y=TPA3start1, linetype=3) +geom_vline(linetype=3) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm"))  + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA))  + theme(axis.text.y = element_blank())+ theme(axis.text.x =(element_blank())) + scale_y_continuous(element_blank(), limits=c(TPAymin, TPAymax)+TPA3start1, breaks=c(2.0, 4.4866, 7.0)) + scale_x_continuous(element_blank())  +scale_fill_manual(values=c(col8), breaks=NULL) +geom_errorbar(limitssap, width=0.01, colour="grey70") + geom_point(aes( y=(sapTPA/sapscale)+ TPA3start1, col=as.factor(col3)), size=1.5, pch=8) + theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_colour_manual(values=c(col8), name=NULL, breaks=c("2"), label=c("(Saplings)"))+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21)  #
+#
+#Radial growth plot#
+limits <- aes(ymax=(x5+errorx5)+x5start1, ymin=(x5-errorx5)+x5start1)#
+T3 <- ggplot(F8, aes(x=x3, y=(x5+x5start1), fill=as.factor(col3)))   +geom_hline(y=x5start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y =element_blank())+ theme(axis.text.x = element_text( hjust = 0.5, size=11, colour="black")) + scale_y_continuous(element_blank(), limits=c(DIAmin, DIAmax)+x5start1, breaks=c(-0.05, 0, 0.05)+x5start1) + scale_x_continuous(name=("Temperature JJA 5-yr\nmean anomaly (C)")) +scale_fill_manual(values=c(col8))#
+#set up 1-year soil moist. plots using ggplot#
+F9 <- subset(F6, v==3)#
+v=3#
+col9 <- c(de,"grey35", pe)#
+limits <- aes(ymax=(y3+errory3)+y3start1, ymin=(y3-errory3+y3start1))#
+#NPP plot#
+R1 <- ggplot(F9,aes(x=x3, y=(y3+y3start1), fill=as.factor(col3))) +geom_hline(y=y3start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.02, colour="grey50")+ geom_point(colour="grey25", size=2.5, pch=21) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y = element_blank())+ theme(axis.text.x =(element_blank())) + scale_y_continuous(element_blank(), limits=c(Cymin, Cymax)+y3start1, breaks=c(1.1, 1.4, round(y3start1, 2), 2.0, 2.3)) + scale_x_continuous(element_blank()) + theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_fill_manual( name=NULL, breaks=c("1", "3"), label=c( "Dry summer", "Wet summer"), values=c(col9))#
+#
+#Stem density plot#
+limits <- aes(ymax=(TPA+errorTPA)+TPA3start1, ymin=(TPA-errorTPA)+TPA3start1)#
+limitssap <- aes(ymax=(sapTPA/sapscale +errorsapTPA/sapscale)+TPA3start1, ymin=(sapTPA/sapscale-errorsapTPA/sapscale)+TPA3start1)#
+R2 <- ggplot(F9,aes(x=x3, y=(TPA+TPA3start1), fill=as.factor(col3)))   +geom_hline(y=TPA3start1, linetype=3) +geom_vline(linetype=3)+theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y = element_blank())+ theme(axis.text.x =(element_blank()))+ scale_y_continuous(element_blank(), limits=c(TPAymin, TPAymax)+TPA3start1, breaks=c(2.0, 4.4866, 7.0)) + scale_x_continuous(element_blank()) +scale_fill_manual(values=c(col9), breaks=NULL) +geom_errorbar(limitssap, width=0.01, colour="grey70") + geom_point(aes( y=(sapTPA/sapscale)+ TPA3start1, col=as.factor(col3)), size=1.5, pch=8) + theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_colour_manual(values=c(col9), name=NULL, breaks=c("2"), label=c("(Saplings)"))+ geom_errorbar(limits, width=0.02, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21)#
+#
+#radial growth plot#
+limits <- aes(ymax=(x5+errorx5)+x5start1, ymin=(x5-errorx5)+x5start1)#
+R3 <- ggplot(F9, aes(x=x3, y=(x5+x5start1), fill=as.factor(col3)))   +geom_hline(y=x5start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.02, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21)  +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA))  + theme(axis.text.y = element_blank())+ theme(axis.text.x = element_text( hjust = 0.5, size=11, colour="black")) + scale_y_continuous(element_blank(), limits=c(DIAmin, DIAmax)+x5start1, breaks=c(-0.05, 0, 0.05)+x5start1) + scale_x_continuous(name=("Soil moisture JJA 1-yr\nmin/max (z-score)")) +scale_fill_manual(values=c(col9))#
+#
+#set up plot window and plot all together#
+dev.new(width=7, height=8)#
+grid.arrange(P1,T1,R1,P2,T2,R2,P3,T3,R3, ncol=3)#
+#grid.text(0.045, unit(0.575,"npc") - unit(1,"line"), rot=90, label="(30)", gp=gpar(cex=0.75))#
+#
+#######END Fig 3.  Climate Correlations
+qt1 <- c(seq(0,1,1/9)/100,seq(1,59,2)/100)#
+qt2 <- c(seq(41,99, 2)/100, seq(99,100,1/9)/100) #0.98, 0.99 added to ease moving average transistion to 1 at end#
+int <- 2#
+F5 <- NULL#
+for(v in 1:3)#
+{v=v#
+F4<-foreach(c = 1:60, .combine=rbind) %dopar%#
+{#
+	if(c<=30 & v<3)#
+	{#
+		f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE)) 		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+		}#
+	if(c>30 & v<3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v])< quantile(vari1[[v]], qt1[d], na.rm=TRUE) & get(vari[v])> quantile(vari1[[v]], qt1[d-int], na.rm=TRUE)) #		#
+		f23 <- subset(F2, get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- vari[v]#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+	if(c<=30 & v==3)#
+	{#
+			f22 <- subset(F2, get(vari[v])> quantile(vari1[[v]], qt2[c], na.rm=TRUE) & get(vari[v])< quantile(vari1[[v]], qt2[c+int], na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE)) #exclude droughts#
+			f23 <- subset(F2, get(vari[v])<= quantile(vari1[[v]], 0.7, na.rm=TRUE) & get(vari[v])>= quantile(vari1[[v]], 0.3, na.rm=TRUE) & SWdrought5chg>= quantile(F2$SWdrought5chg, 0.15, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Wet summer"#
+		col3=ifelse(qt2[c+(int/2)]>=0.85, 3, 2)#
+		qta <- qt2[c]#
+		qtb <- qt2[c+int]#
+	}#
+	if(c>30 & v==3)#
+	{ #
+		d=c-20#
+		f22 <- subset(F2, get(vari[v+1])< quantile(vari1[[v+1]], qt1[d], na.rm=TRUE) & get(vari[v+1])> quantile(vari1[[v+1]], qt1[d-int], na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE)) #exclude wet summers  #
+		f23 <- subset(F2, get(vari[v+1])<= quantile(vari1[[v+1]], 0.7, na.rm=TRUE) & get(vari[v+1])>= quantile(vari1[[v+1]], 0.3, na.rm=TRUE) & SWpluvial5chg<= quantile(F2$SWpluvial5chg, 0.85, na.rm=TRUE), select=c(PLT_CN)) #
+		ccond <- "Dry summer"#
+		col3=ifelse(qt1[d-(int/2)]<=0.15, 1, 2)#
+		qtb <- qt1[d]#
+		qta <- qt1[d-int]#
+	}#
+f22$nsamp <- (ave(f22$DIAmean>0,f22$LATLON, FUN=function(x) sum(x, na.rm=TRUE)))/f22$nsampTOT #sample proportion of each grid cell #
+#print(c(table(f22$nsamp<0.75), col3))#
+#
+#f22$col3 <- col3#
+PLT_CNsamp1 <- f23$PLT_CN   #
+#
+f24 <- subset(f22, !duplicated(LATLON), select=c(LATLON, nsamp))#
+#
+F33 <- subset(F2, LATLON %in% (f22$LATLON)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+F33 <- merge(F33, f24, all.x=T, by="LATLON")#
+F33 <- subset(F33, PLT_CN %in% (PLT_CNsamp1)) # not neccesaary bc weighting will eliminate latlons not in f22!#
+#
+F33$aPREVSTOCKDIAbin <- floor(F33$PREV_STOCKINGmid/10)*10000+(floor(F33$PREV_DIAmean/2)*2)#
+F33$n1 <- 1#
+F33$aPREVSTOCKDIAbinlength <- ave(F33$n1, F33$aPREVSTOCKDIAbin, FUN=function(x) sum(x, na.rm=TRUE))#
+F33$nbin <- ave(F33$nsamp, F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))#
+#
+F33 <- subset(F33, aPREVSTOCKDIAbinlength> 25) #Null model needs at least 10 comparison plots at each diameter/stocking bin#
+#
+##Carbon Model#
+c6 <- (((F33$carbon1sum-F33$PREVcarbon1sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgCchg <- (ave(c6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##Carbon Model 5 inch and greater trees#
+c5 <- (((F33$carbon5sum-F33$PREVcarbon5sum)* 0.00112085116 )/F33$REMPER)#
+F33$avgC5chg <- (ave(c5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin#
+#
+##radial growth 5,10,15 inch min DIA #
+rx5 <- (F33$DIAgrowmean/F33$REMPER)/2 ## convert from diameter to radial growth#
+F33$avgx5 <- ave(rx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Mortality diameter mean#
+mortrx5 <- F33$mortDIAmean  ##
+F33$avgmortx5 <- ave(mortrx5*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##Density Model#
+y6 <- (F33$TPAsum-F33$PREV_TPAsum)/F33$REMPER  ##
+F33$avgTPAchg <- ave(y6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+#
+##SAPLINGS Density Model#
+sap6 <- ((F33$TPAsum05/0.404686)-(F33$PREVTPAsum05/0.404686))/F33$REMPER  # convert to hectares#
+F33$sapavgTPAchg <- ave(sap6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin#
+##SAPLINGS mortality /recruitment#
+F33$sapavgMORT <- ave(F33$sapMortsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling mortality per plot#
+F33$sapavgRECR <- ave(F33$sapRecruitsum*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))/F33$nbin #sapling plot recuritment#
+#
+#SISP ratio#
+F33$sp1<- mean(F33$SISPchg, na.rm=T) #F33$nsamp#
+F33$spavgchg <- ave(F33$sp1,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)) #/F33$nbin#
+#
+#Merge null and conditional model data#
+F34 <- subset(F33, !duplicated(aPREVSTOCKDIAbin), select=c(aPREVSTOCKDIAbin, avgCchg, avgx5, avgTPAchg, sapavgTPAchg, avgC5chg, avgmortx5, sapavgMORT, sapavgRECR))#
+f22$aPREVSTOCKDIAbin <- floor(f22$PREV_STOCKINGmid/10)*10000+(floor(f22$PREV_DIAmean/2)*2)#
+f22 <- merge(f22, F34, by="aPREVSTOCKDIAbin") #, all.x=T#
+#
+#carbon 1 and 5 inch#
+c8 <- (((f22$carbon1sum-f22$PREVcarbon1sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon <- ((c8)-f22$avgCchg)#
+#
+c55 <- (((f22$carbon5sum-f22$PREVcarbon5sum)* 0.00112085116 )/f22$REMPER)#
+f22$xcarbon5 <- ((c55)-f22$avgC5chg)#
+#
+##radial growth  #
+x8 <- (f22$DIAgrowmean/f22$REMPER)/2  # convert from diameter to radial growth#
+f22$x5 <-  (x8-f22$avgx5)#
+#
+##mortality size#
+mortx8 <- f22$mortDIAmean ##
+f22$mortx5 <-  (mortx8-f22$avgmortx5)#
+#
+##Density Model#
+TPA <- (f22$TPAsum-f22$PREV_TPAsum)/f22$REMPER  ##
+f22$TPAchg <-  (TPA-f22$avgTPAchg)#
+#
+##SAPLING Density Model#
+sapTPA <- ((f22$TPAsum05/0.404686)-(f22$PREVTPAsum05/0.404686))/f22$REMPER  ##
+f22$sapTPAchg <-  (sapTPA-f22$sapavgTPAchg)#
+f22$sapMORTchg <- (f22$sapMortsum/f22$sapavgMORT)*100 #sapling mortaltiy percent difference from null#
+f22$sapRECRchg <- (f22$sapRecruitsum/f22$sapavgRECR)*100 #sapling recruitment percent difference from null#
+#
+##SISP ratio#
+sp22 <- mean(f22$SISPchg-f22$sapavgTPAchg, na.rm=T)#
+#
+#calculate mean condition for x-axis based on v loop#
+if(length(f22$xcarbon)>= 10)#
+{#
+if(v==2)#
+{#
+	x3 <- mean(f22$TEMP5growchg, na.rm=TRUE)#
+}#
+if(v==1)#
+{#
+	x3 <- mean(f22$PREC5growchg, na.rm=TRUE)#
+}#
+if(v==3)#
+{#
+x3 <- ifelse(c<=30,mean(f22$SWpluvial5chg, na.rm=TRUE), mean(f22$SWdrought5chg, na.rm=TRUE))#
+}#
+#
+#calculate y-axis variables#
+y3 <- mean(f22$xcarbon, na.rm=TRUE) #
+y3pctdif<-(mean(f22$xcarbon, na.rm=TRUE)/mean(f22$avgCchg, na.rm=TRUE))*100   ##
+y3start <-  mean(c6, na.rm=T) #null model zero line for plotting#
+y5 <- mean(f22$xcarbon5, na.rm=TRUE)  ##
+y5start <- mean(c5, na.rm=T) #null model zero line for plotting#
+TPA3 <- mean(f22$TPAchg, na.rm=TRUE) ##
+sapTPA3 <- mean(f22$sapTPAchg, na.rm=TRUE) ##
+TPA3start <-  mean(y6, na.rm=T)#
+sapTPA3start <- mean(sap6, na.rm=T)#
+x5 <- mean(f22$x5, na.rm=TRUE) ##
+x5start <-  mean(rx5, na.rm=T)#
+mortx5 <- mean(f22$mortx5, na.rm=TRUE) ##
+mortx5start <-   mean(mortx8, na.rm=T)#
+#
+sapMORT <- mean(f22$sapMORTchg, na.rm=T)#
+sapRECR <- mean(f22$sapRECRchg, na.rm=T)#
+#
+#calc y-axis error#
+R2 <- 100 #repetitions set to 10 for faster looping#
+enderror <- boot(f22$xcarbon, meanFunc, R=R2)#
+enderrory3 <- sqrt(var(enderror$t))*1.96#
+enderror5 <- boot(f22$xcarbon5, meanFunc, R= R2)#
+enderrory5 <- sqrt(var(enderror5$t))*1.96#
+enderror2 <- boot(f22$TPAchg, meanFunc, R= R2)#
+enderrorTPA <- sqrt(var(enderror2$t))*1.96#
+enderrorsap <- boot(f22$sapTPAchg, meanFunc, R= R2)#
+enderrorsapTPA <- sqrt(var(enderrorsap$t))*1.96#
+enderror4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrorx5 <- sqrt(var(enderror4$t))*1.96#
+enderrormort4 <- boot(f22$x5, meanFunc, R= R2)#
+enderrormortx5 <- sqrt(var(enderrormort4$t))*1.96#
+enderrorsapMORT <- std.error(f22$sapMORTchg, na.rm=T)#
+enderrorsapRECR <- std.error(f22$sapRECRchg, na.rm=T)#
+enderrorsp2error <- boot((f22$SISPchg-f22$sapavgTPAchg), meanFunc, R= R2)#
+enderrorsp22error <- sqrt(var(enderrorsp2error$t))*1.96#
+#
+n <- length(f22$xcarbon) #conditional model n#
+nnull <- length(F33$avgx5) #null model n#
+print(c(n, ccond, c, nnull))#
+#
+f23 <- c(x3, y3, y5, TPA3, sapTPA3, x5, mortx5, enderrory3, enderrory5, enderrorTPA, enderrorsapTPA, enderrorx5, enderrormortx5, n, v, col3, y3start, y5start, TPA3start, x5start, sapTPA3start, mortx5start, sapMORT, sapRECR, enderrorsapMORT, enderrorsapRECR, sp22, enderrorsp22error, y3pctdif)#
+#
+}#
+}#
+F5 <- rbind(F5,F4)#
+}#
+#
+F6 <- as.data.table(F5)#
+setnames(F6, c("x3","y3","y5", "TPA","sapTPA", "x5", "DIAmortality", "errory3","errory5", "errorTPA","errorsapTPA", "errorx5","DIAmorterror", "n", "v", "col3", "y3start", "y5start", "TPA3start", "x5start", "sapTPA3start", "DIAmortstart", "sapMORTpct", "sapRECRpct", "enderrorsapMORT", "enderrorsapRECR", "SISPratio", "SISPerror", "y3pctdif"))
+#convert radial growth from cm to mm#
+F6$x5 <- F6$x5*10 #
+F6$errorx5 <- F6$errorx5*10#
+#convert to percent difference#
+F6$sapMORTpct <-  (F6$sapMORTpct-100)#
+F6$sapRECRpct <-  (F6$sapRECRpct-100)#
+F6$sapCpct <-  ((F6$y3-F6$y5)/F6$y3)*100#
+#calc plot y-scales#
+sapscale  <-  30 #mean(F6$sapTPA3start)/mean(F6$TPA3start) #
+Cymax  <-  max(F6$y3+F6$errory3)#
+Cymin  <-  min(F6$y3-F6$errory3)#
+TPAymax <- max(F6$sapTPA/sapscale+F6$errorsapTPA/sapscale, na.rm=T)#
+#TPAymax <- (max(F6$sapTPA+F6$errorsapTPA))/sapscale#
+TPAymin <- min(F6$TPA-F6$errorTPA)#
+#TPAymin <- (min(F6$sapTPA-F6$errorsapTPA))/sapscale#
+DIAmax <- max(F6$x5+F6$errorx5)#
+DIAmin <- min(F6$x5-F6$errorx5)#
+sapmax <- max(F6$sapMORTpct+F6$enderrorsapMORT)#
+sapmin <- min(F6$sapMORTpct-F6$enderrorsapMORT)#
+#
+#plot only sapling data that is significantly different with scaling than larger trees. #
+F6$sapTPA <- ifelse(((F6$sapTPA/sapscale)>(F6$TPA+F6$errorTPA))|((F6$sapTPA/sapscale)<(F6$TPA-F6$errorTPA)), F6$sapTPA, NA)#
+#
+#set up 5-year precip plots using ggplot#
+F7 <- subset(F6, v==1)#
+F7$sapTPA <- ifelse(F7$col3==2,NA, F7$sapTPA)#
+v=1#
+y3start1 <-mean(F6$y3start)#
+TPA3start1 <-mean(F6$TPA3start) #mean(F2$TPAchg) ##
+sapTPA3start1 <-mean(F6$sapTPA3start)#
+x5start1 <- mean((F6$x5start)*10)#
+col4 <- c(dt,"grey35", pt)#
+#
+#NPP plot#
+#limitssap <- aes(ymax=(y5/y5scale +errorsapTPA/sapscale)+TPA3start1, ymin=(sapTPA/sapscale-errorsapTPA/sapscale)+TPA3start1)#
+limits <- aes(ymax=(y3+errory3)+y3start1, ymin=(y3-errory3+y3start1))#
+P1 <- ggplot(F7, aes(x=x3, y=(y3+y3start1), fill=as.factor(col3)))  +geom_hline(y=y3start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21)  + theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA))  + theme(axis.text.y = element_text(angle = 90, hjust = 0.5, size=11, colour="black"))+ theme(axis.text.x = element_blank())+ scale_y_continuous(name=expression(paste(Delta, " NPP (Mg C ha"^"-1","yr" ^"-1",")")), limits=c(Cymin, Cymax)+y3start1, breaks=c(1.1, 1.4, round(y3start1, 2), 2.0, 2.3), labels=c(1.1, 1.4, round(y3start1, 1), 2.0, 2.3)) + scale_x_continuous(element_blank(), breaks=c(-0.5, 0, 0.5))+ theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_fill_manual( name=NULL, breaks=c("1", "3"), label=c( "Dry 5-yr period", "Wet 5-yr period"), values=c(col4)) #
+#Stem density plot#
+limits <- aes(ymax=(TPA+errorTPA)+TPA3start1, ymin=(TPA-errorTPA)+TPA3start1)#
+limitssap <- aes(ymax=(sapTPA/sapscale +errorsapTPA/sapscale)+TPA3start1, ymin=(sapTPA/sapscale-errorsapTPA/sapscale)+TPA3start1)#
+P2 <- ggplot(F7, aes(x=x3, y=(TPA+TPA3start1), fill=as.factor(col3)))  +geom_hline(y=TPA3start1, linetype=3) +geom_vline(linetype=3) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(-0.07, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y = element_text(angle = 90, hjust = 0.5, size=11, colour="black"))+ theme(axis.text.x = element_blank())+ scale_y_continuous(name=expression(paste(Delta, " Stem density (ha"^"-1","yr" ^"-1",")")), limits=c(TPAymin, TPAymax)+TPA3start1, breaks=c(2.0, 4.4866, 7.0), labels=c(expression("2.0"[" (-40)"]), expression("4.5" [" (35)"]), expression("7.0" [" (110)"]))) + scale_x_continuous(element_blank(), breaks=c(-0.5, 0, 0.5)) +scale_fill_manual(values=c(col4), breaks=NULL) +geom_errorbar(limitssap, width=0.01, colour="grey70") + geom_point(aes( y=(sapTPA/sapscale)+ TPA3start1, col=as.factor(col3)), size=1.5, pch=8) + theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0.15,0), "cm")) +scale_colour_manual(values=c(col9), name=NULL, breaks=c("2"), label=c("(Saplings)"))+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21) #
+#
+#Radial growth plot#
+limits <- aes(ymax=(x5+errorx5)+x5start1, ymin=(x5-errorx5)+x5start1)#
+P3 <- ggplot(F7, aes(x=x3, y=(x5+x5start1), fill=as.factor(col3)))  +geom_hline(y=x5start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0.27,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA))  + theme(axis.text.y = element_text(angle = 90, hjust = 0.5, size=11, colour="black"))+ theme(axis.text.x = element_text( hjust = 0.5, size=11, colour="black"))+ scale_y_continuous(name=expression(paste("Radial growth (mm yr" ^"-1",")")), limits=c(DIAmin, DIAmax)+x5start1, breaks=c(-0.05, 0, 0.05)+x5start1, labels=c(-0.05, 0, 0.05)+round(x5start1,2)) + scale_x_continuous(name=expression(paste("   Precipitation JJA 5-yr\nmean anomaly (mm day"^"-1",")")), breaks=c(-0.5, 0, 0.5)) +scale_fill_manual(values=c(col4)) + theme(axis.title.x = element_text(vjust=-0.85))#
+#set up 5-year TEMP plots using ggplot#
+F8 <- subset(F6, v==2) # & x3>0.2)#
+v=2#
+col8 <- c(ct,"grey35", wt)#
+#NPP plot#
+limits <- aes(ymax=(y3+errory3)+y3start1, ymin=(y3-errory3+y3start1))#
+T1 <- ggplot(F8, aes(x=x3, y=(y3+y3start1), fill=as.factor(col3)))  +geom_hline(y=y3start1, linetype=3)+geom_vline(linetype=3)+ geom_errorbar(limits, width=0.01, colour="grey50")+ geom_point(colour="grey25", size=2.5, pch=21) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y = element_blank())+ theme(axis.text.x =element_blank())+ scale_y_continuous(element_blank(), limits=c(Cymin, Cymax)+y3start1, breaks=c(1.1, 1.4, round(y3start1, 2), 2.0, 2.3)) + scale_x_continuous(element_blank(),breaks=c(-0.5, 0, 0.5, 1.0))+ theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_fill_manual( name=NULL, breaks=c("1", "3"), label=c("Cool 5-yr period", "Warm 5-yr period"), values=c(col8))#
+#
+#stem density#
+limits <- aes(ymax=(TPA+errorTPA)+TPA3start1, ymin=(TPA-errorTPA)+TPA3start1)#
+T2 <- ggplot(F8,aes(x=x3, y=(TPA+TPA3start1), fill=as.factor(col3)))    +geom_hline(y=TPA3start1, linetype=3) +geom_vline(linetype=3) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm"))  + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA))  + theme(axis.text.y = element_blank())+ theme(axis.text.x =(element_blank())) + scale_y_continuous(element_blank(), limits=c(TPAymin, TPAymax)+TPA3start1, breaks=c(2.0, 4.4866, 7.0)) + scale_x_continuous(element_blank())  +scale_fill_manual(values=c(col8), breaks=NULL) +geom_errorbar(limitssap, width=0.01, colour="grey70") + geom_point(aes( y=(sapTPA/sapscale)+ TPA3start1, col=as.factor(col3)), size=1.5, pch=8) + theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_colour_manual(values=c(col8), name=NULL, breaks=c("2"), label=c("(Saplings)"))+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21)  #
+#
+#Radial growth plot#
+limits <- aes(ymax=(x5+errorx5)+x5start1, ymin=(x5-errorx5)+x5start1)#
+T3 <- ggplot(F8, aes(x=x3, y=(x5+x5start1), fill=as.factor(col3)))   +geom_hline(y=x5start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.01, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y =element_blank())+ theme(axis.text.x = element_text( hjust = 0.5, size=11, colour="black")) + scale_y_continuous(element_blank(), limits=c(DIAmin, DIAmax)+x5start1, breaks=c(-0.05, 0, 0.05)+x5start1) + scale_x_continuous(name=("Temperature JJA 5-yr\nmean anomaly (C)")) +scale_fill_manual(values=c(col8))#
+#set up 1-year soil moist. plots using ggplot#
+F9 <- subset(F6, v==3)#
+v=3#
+col9 <- c(de,"grey35", pe)#
+limits <- aes(ymax=(y3+errory3)+y3start1, ymin=(y3-errory3+y3start1))#
+#NPP plot#
+R1 <- ggplot(F9,aes(x=x3, y=(y3+y3start1), fill=as.factor(col3))) +geom_hline(y=y3start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.02, colour="grey50")+ geom_point(colour="grey25", size=2.5, pch=21) +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y = element_blank())+ theme(axis.text.x =(element_blank())) + scale_y_continuous(element_blank(), limits=c(Cymin, Cymax)+y3start1, breaks=c(1.1, 1.4, round(y3start1, 2), 2.0, 2.3)) + scale_x_continuous(element_blank()) + theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_fill_manual( name=NULL, breaks=c("1", "3"), label=c( "Dry summer", "Wet summer"), values=c(col9))#
+#
+#Stem density plot#
+limits <- aes(ymax=(TPA+errorTPA)+TPA3start1, ymin=(TPA-errorTPA)+TPA3start1)#
+limitssap <- aes(ymax=(sapTPA/sapscale +errorsapTPA/sapscale)+TPA3start1, ymin=(sapTPA/sapscale-errorsapTPA/sapscale)+TPA3start1)#
+R2 <- ggplot(F9,aes(x=x3, y=(TPA+TPA3start1), fill=as.factor(col3)))   +geom_hline(y=TPA3start1, linetype=3) +geom_vline(linetype=3)+theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA)) + theme(axis.text.y = element_blank())+ theme(axis.text.x =(element_blank()))+ scale_y_continuous(element_blank(), limits=c(TPAymin, TPAymax)+TPA3start1, breaks=c(2.0, 4.4866, 7.0)) + scale_x_continuous(element_blank()) +scale_fill_manual(values=c(col9), breaks=NULL) +geom_errorbar(limitssap, width=0.01, colour="grey70") + geom_point(aes( y=(sapTPA/sapscale)+ TPA3start1, col=as.factor(col3)), size=1.5, pch=8) + theme(legend.title=element_blank(), legend.key=element_rect(fill="white"), legend.key.size = unit(0.35, "cm"), legend.position = c(0.5,0.9),plot.margin=unit(c(0,0,0,0), "cm")) +scale_colour_manual(values=c(col9), name=NULL, breaks=c("2"), label=c("(Saplings)"))+ geom_errorbar(limits, width=0.02, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21)#
+#
+#radial growth plot#
+limits <- aes(ymax=(x5+errorx5)+x5start1, ymin=(x5-errorx5)+x5start1)#
+R3 <- ggplot(F9, aes(x=x3, y=(x5+x5start1), fill=as.factor(col3)))   +geom_hline(y=x5start1, linetype=3) +geom_vline(linetype=3)+ geom_errorbar(limits, width=0.02, colour="grey50") + geom_point(colour="grey25", size=2.5, pch=21)  +theme(axis.line = element_line( size = 0.35)) + theme(axis.ticks.margin = unit(0.06, "cm")) + theme(axis.ticks.length = unit(0.1, "cm")) + theme(legend.position = "none",plot.margin=unit(c(0,0,0,0), "cm")) +theme( panel.background = element_rect(fill=NA),  panel.grid.major = element_blank(),panel.grid.minor = element_blank(), plot.background = element_rect(fill=NA))  + theme(axis.text.y = element_blank())+ theme(axis.text.x = element_text( hjust = 0.5, size=11, colour="black")) + scale_y_continuous(element_blank(), limits=c(DIAmin, DIAmax)+x5start1, breaks=c(-0.05, 0, 0.05)+x5start1) + scale_x_continuous(name=("Soil moisture JJA 1-yr\nmin/max (z-score)")) +scale_fill_manual(values=c(col9))#
+#
+#set up plot window and plot all together#
+dev.new(width=7, height=8)#
+grid.arrange(P1,T1,R1,P2,T2,R2,P3,T3,R3, ncol=3)#
+#grid.text(0.045, unit(0.575,"npc") - unit(1,"line"), rot=90, label="(30)", gp=gpar(cex=0.75))#
+#
+#######END Fig 3.  Climate Correlations#######################################################
+############# Figure S1 -  SAPLING mortality and
