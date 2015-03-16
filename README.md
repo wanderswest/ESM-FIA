@@ -6,11 +6,9 @@ Explore this R code and associated filtered US Forest Service Forest Inventory a
 
  Figure 1. Empirical Succession Mapping
  
- Figure 2. 5-year self thinning relationships to disturbance
+ Figure 2. Influence of climate conditions (temperature & moisture anomalies)
  
- Figure 3. Influence of climate conditions (temperature & moisture anomalies)
- 
- Figure 4. Forward modeling of eastern US forest carbon steady-states
+ Figure 3. Forward modeling of eastern US forest carbon steady-states
 
 Associated manuscript submitted for review. Feel free to contact me with any questions! 
  
