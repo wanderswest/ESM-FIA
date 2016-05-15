@@ -36,10 +36,12 @@ meanFunc <- function(x,i){mean(x[i], na.rm=TRUE)}
 
 
 ##Load data from GITHUB
- data.url <- "https://raw.githubusercontent.com/wanderswest/ESM-FIA/master/STEMs.data.csv"
+ data.url <- "https://raw.githubusercontent.com/wanderswest/ESM-FIA/master/ESM.data.csv"
+ 
     ESM.data <- getURL(data.url)                
     ESM.data <- read.csv(textConnection(ESM.data), header = TRUE, sep = ",", quote="\"", dec=".")
 RM5mergedfullcut1991.11.17.2014  <- as.data.table(ESM.data)
+
 
 #or load filtered data from local drive
 #RM5mergedfullcut1991.11.17.2014  <- as.data.table(read.csv("/Users/travis/GitHub/ESM-FIA/ESM.data.csv", header = TRUE, sep = ",", quote="\"", dec="."))
@@ -767,13 +769,13 @@ F33 <- subset(F33, PLT_CN %in% (PLT_CNsamp1)) # not neccesaary bc weighting will
 F33$aPREVSTOCKDIAbin <- floor(F33$PREV_STOCKINGmid/10)*10000+(floor(F33$PREV_DIAmean/2)*2)
 F33$n1 <- 1
 F33$aPREVSTOCKDIAbinlength <- ave(F33$n1, F33$aPREVSTOCKDIAbin, FUN=function(x) sum(x, na.rm=TRUE))
-F33$nbin <- ave(F33$nsamp, F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE))
+F33$nbin <- ave(F33$nsamp, F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)) #average AC proportion in stock/dia bins
 
-F33 <- subset(F33, aPREVSTOCKDIAbinlength> 25) #Null model needs at least 10 comparison plots at each diameter/stocking bin
+F33 <- subset(F33, aPREVSTOCKDIAbinlength> 25) #Null model needs at least 25 comparison plots at each diameter/stocking bin
 
 ##Carbon Model
 c6 <- (((F33$carbon1sum-F33$PREVcarbon1sum)* 0.00112085116 )/F33$REMPER)
-F33$avgCchg <- (ave(c6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin
+F33$avgCchg <- (ave(c6*F33$nsamp,F33$aPREVSTOCKDIAbin, FUN=function(x) mean(x, na.rm=TRUE)))/F33$nbin #multiply by AC proportion divided by mean proportion in each stocking/dia bin
 
 ##Carbon Model 5 inch and greater trees
 c5 <- (((F33$carbon5sum-F33$PREVcarbon5sum)* 0.00112085116 )/F33$REMPER)
@@ -1079,7 +1081,7 @@ grid.arrange(P1,T1,R1, ncol=3)
 
 F6 <- as.data.table(F5)
 setnames(F6, c("x3","y3","y5", "TPA","sapTPA", "x5", "DIAmortality", "errory3","errory5", "errorTPA","errorsapTPA", "errorx5","DIAmorterror", "n", "v", "col3", "y3start", "y5start", "TPA3start", "x5start", "sapTPA3start", "DIAmortstart", "sapMORTpct", "sapRECRpct", "enderrorsapMORT", "enderrorsapRECR", "SISPratio", "SISPerror"))
-F6 <- subset(F6, n>10) 
+F6 <- subset(F6, n>1) 
 
 #calc plot y-scales
 Cymax  <-  max(F6$y3+F6$errory3)
@@ -1495,7 +1497,7 @@ F2$allmort<-(F2$insect+F2$fire+F2$weather+F2$disease+F2$animal+F2$unknowndamage+
 Feqmerge<-F2
 
 #Comparison model
-F2<-subset(F2, select=c(PLT_CN, PREV_STOCKINGmid, PREV_DIAmean, PREV_Csum, DIAmean, Csum, STOCKINGmid,  REMPER, DIAchg, Cchg, STOCKchg, TEMP5growchg, PREC5growchg, SWdrought5chg, SWpluvial5chg, cutting, STDORGCD, cut, cutDIAmean, TPAsum, NOdisturb, alldisturb, allmort)) #, PREV_SPCDdiversity, SPCDdiversity, PREV_SPGRPCD, SPGRPCD))# 
+F2<-subset(F2, select=c(PLT_CN, PREV_STOCKINGmid, PREV_DIAmean, PREV_Csum, DIAmean, Csum, STOCKINGmid,  REMPER, DIAchg, Cchg, STOCKchg, TEMP5growchg, PREC5growchg, SWdrought5chg, SWpluvial5chg, cutting, STDORGCD, cut, cutDIAmean, TPAsum, NOdisturb, alldisturb, allmort, EHstocksum, NMHstocksum, SMHstocksum, LHstocksum)) #, PREV_SPCDdiversity, SPCDdiversity, PREV_SPGRPCD, SPGRPCD))# 
 c2<-40 # max diameter bin to collapse outliers
 #previous whole dataset with change
 #F2$PREV_DIAmean[F2$PREV_DIAmean>40]<-40
@@ -1523,7 +1525,7 @@ F2$mergeDIASTOCKbin2<-F2$PREVDIAbin2*10000+F2$PREVSTOCKbin2
 F5<-subset(F2, cut==0 & STDORGCD==0 )
 F5harvest<-subset(F2, STDORGCD==0) #, cutDIAmean>8.7 | is.na(cutDIAmean)==T )
 
-time<-300 #years forward modeling
+time<-150 #years forward modeling
 
 #Climate Colors:
 pt<-"steelblue1" #pluvial trend
@@ -1554,7 +1556,7 @@ Fbindall2<-NULL
 
 ###
 ##for loop start
-for(c in 1:11){
+for(c in 7:7){
 for(i in 1:(time/5)){
 
 if(1==2)  #randomly sample for unstable solution testing/ model uncertainty 
@@ -1638,7 +1640,7 @@ F3b$rando<-ave(F3b$PREVDIASTOCKbinN, F3b$DIASTOCKbin, FUN=function(x) sample(1:m
 
 F3b<-subset(F3b, select=c(CsumSTART, DIAmeanSTART, STOCKINGmidSTART, mergeDIASTOCKbin, rando))
 F3b<-merge(F3b, F2, by=c("mergeDIASTOCKbin", "rando"))
-F3d<-subset(F3b, select=c(CsumSTART, DIAmeanSTART, STOCKINGmidSTART, STOCKINGmid, DIAmean, Csum, PLT_CN , PREV_DIAmean, PREV_Csum, Cchg, DIAchg, REMPER, TPAsum))
+F3d<-subset(F3b, select=c(CsumSTART, DIAmeanSTART, STOCKINGmidSTART, STOCKINGmid, DIAmean, Csum, PLT_CN , PREV_DIAmean, PREV_Csum, Cchg, DIAchg, REMPER, TPAsum, EHstocksum, NMHstocksum, SMHstocksum, LHstocksum))
 
 
 ##For bins without any plots matching initial and final surveys - use data from larger bins
@@ -1655,8 +1657,8 @@ F3c<-subset(F3c, select=c(CsumSTART, DIAmeanSTART, STOCKINGmidSTART, mergeDIASTO
 F3c<-merge(F3c, F2, by=c("mergeDIASTOCKbin2", "rando2"))
 setnames(F3c, c("mergeDIASTOCKbin2", "rando2"), c("mergeDIASTOCKbin", "rando") )
 
-F3c<-subset(F3c, select=c(CsumSTART, DIAmeanSTART, STOCKINGmidSTART, STOCKINGmid, DIAmean, Csum, PLT_CN, PREV_DIAmean, PREV_Csum, Cchg, DIAchg, REMPER, TPAsum))
-F3b<-subset(F3b, select=c(CsumSTART, DIAmeanSTART, STOCKINGmidSTART, STOCKINGmid, DIAmean, Csum, PLT_CN, PREV_DIAmean, PREV_Csum, Cchg, DIAchg, REMPER, TPAsum))
+F3c<-subset(F3c, select=c(CsumSTART, DIAmeanSTART, STOCKINGmidSTART, STOCKINGmid, DIAmean, Csum, PLT_CN, PREV_DIAmean, PREV_Csum, Cchg, DIAchg, REMPER, TPAsum, EHstocksum, NMHstocksum, SMHstocksum, LHstocksum))
+F3b<-subset(F3b, select=c(CsumSTART, DIAmeanSTART, STOCKINGmidSTART, STOCKINGmid, DIAmean, Csum, PLT_CN, PREV_DIAmean, PREV_Csum, Cchg, DIAchg, REMPER, TPAsum, EHstocksum, NMHstocksum, SMHstocksum, LHstocksum))
 F3d<-rbind(F3b, F3c)
 }
 F3<-F3d
@@ -1670,6 +1672,11 @@ y1<-mean(F3$CsumSTART, na.rm=TRUE)
 y2<-mean(F3$Csum, na.rm=TRUE)
 TPA2<-mean(F3$TPAsum, na.rm=TRUE)
 Caccum<-(mean(F3$Cchg, na.rm=TRUE))/(mean(F3$REMPER,na.rm=T))
+EH<- mean(F3$EHstocksum, na.rm=T)
+NMH<- mean(F3$NMHstocksum, na.rm=T)
+SMH<- mean(F3$SMHstocksum, na.rm=T)
+LH<- mean(F3$LHstocksum, na.rm=T)
+
 
 arrows(x1,y1, x2, y2 ,col=("black"), length=0.07, angle=25,lwd=2) 
 arrows(x1,y1, x2, y2 ,col=col5[c], length=0.07, angle=25,lwd=1.5) 
@@ -1677,7 +1684,7 @@ if(i==10 | i==20 | i==30 |i==40 )
 {arrows(x1,y1, x2, y2 ,col=("salmon"), length=0.07, angle=25,lwd=2)	} #denote 100 years of growth with red vectors
 
 #gather arrow data
-Fbindall<-c(x1,y1, x2, y2, TPA2, c, Caccum, i)
+Fbindall<-c(x1,y1, x2, y2, TPA2, c, Caccum, i, EH, NMH, SMH, LH)
 Fbindall2<-rbind(Fbindall2, Fbindall)
 
 #turn error bars on last increment # dont plot
@@ -1702,7 +1709,15 @@ print(Fbind2)
 
 #plot vectors on carbon mapping
 Fbindall2<-as.data.table(Fbindall2)
-setnames(Fbindall2,c("x1", "y1","x2", "y2", "TPA2", "c", "Caccum", "i"))
+setnames(Fbindall2, c("x1", "y1","x2", "y2", "TPA2", "c", "Caccum", "i", "EH", "NMH", "SMH", "LH"))
+
+
+plot(Fbindall2$i*5, Fbindall2$NMH, type = "l", ylim=c(5,22))
+
+lines((Fbindall2$i*5), Fbindall2$EH, col="green")
+lines((Fbindall2$i*5), Fbindall2$LH, col="blue")
+lines((Fbindall2$i*5), Fbindall2$SMH, col="red")
+
 
 
 c1<-(1:11)
@@ -2079,7 +2094,7 @@ F33$Nsamp<-(ave(F33$DIAmean>0,F33$LATLON, FUN=function(x) sum(x, na.rm=TRUE)))/F
 
 f24<-subset(f22, !duplicated(LATLON), select=c(LATLON, Csamp))
 F33<-merge(F33, f24, all.x=TRUE, by="LATLON")
-F33$CtoNratio<-F33$Csamp/F33$Nsamp  #condition to null grid cell sampling ratio for weighted comparisons
+F33$CtoNratio<- 1 #F33$Csamp/F33$Nsamp  #condition to null grid cell sampling ratio for weighted comparisons
 
 F33$mortDIAmean <-F33$mortDIAmean*F33$CtoNratio
 
